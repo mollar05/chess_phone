@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Chess Defense: Ranking Fix</title>
+    <title>Chess Defense: Local</title>
     <style>
         /* 모바일 기본 설정 */
         body {
@@ -211,52 +211,58 @@
     <!-- Firebase SDK -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, getDocs, serverTimestamp, updateDoc, doc, limit, query, orderBy } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // 🔥 오류 수정: 환경 설정 변수 사용 (보안 규칙 문제 해결)
-        const firebaseConfig = JSON.parse(__firebase_config);
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        // 🔥 사용자가 제공한 Firebase 설정 키 (로컬용)
+        const firebaseConfig = {
+            apiKey: "AIzaSyAQc4zmexSGF19tSTJs6pTgtFOE0z--6XA",
+            authDomain: "game-28340361-cd827.firebaseapp.com",
+            projectId: "game-28340361-cd827",
+            storageBucket: "game-28340361-cd827.firebasestorage.app",
+            messagingSenderId: "642880657235",
+            appId: "1:642880657235:web:b0b00984a8b5590f1bb3a6"
+        };
+
+        // Firebase 초기화
+        let app, auth, db;
+        try {
+            app = initializeApp(firebaseConfig);
+            auth = getAuth(app);
+            db = getFirestore(app);
+            
+            // 로컬 실행을 위한 익명 로그인 자동 실행
+            signInAnonymously(auth).catch(e => {
+                console.error("Firebase Login Failed:", e);
+                alert("랭킹 서버 연결 실패. 인터넷 연결을 확인하세요.");
+            });
+
+        } catch(e) {
+            console.error("Firebase Init Error:", e);
+        }
 
         let currentUser = null;
-
-        // 인증 대기용 Promise
         const authReady = new Promise((resolve) => {
-            const unsubscribe = onAuthStateChanged(auth, (user) => {
+            if(!auth) return resolve(null);
+            onAuthStateChanged(auth, (user) => {
                 if (user) {
                     currentUser = user;
                     resolve(user);
-                    unsubscribe();
                 }
             });
         });
 
-        // 초기 로그인 (커스텀 토큰 우선, 없으면 익명)
-        const initAuth = async () => {
-            try {
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
-                }
-            } catch (e) {
-                console.error("Auth Failed:", e);
-            }
-        };
-        initAuth();
-
         // 전역 함수로 등록
         window.saveScoreAndCheckRank = async (finalScore) => {
+            if (!db) return { rank: '설정 오류', topScore: '-', topName: '-', isNewRecord: false };
+
             try {
                 // 로그인 완료 대기
                 await authReady;
-                if (!auth.currentUser) return { rank: '로그인 필요', topScore: '-', topName: '-', isNewRecord: false };
+                if (!auth.currentUser) return { rank: '연결 중...', topScore: '-', topName: '-', isNewRecord: false };
 
-                // 🌟 중요: 이 경로(`artifacts/...`)를 써야 권한 오류가 안 납니다.
-                const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'scores');
+                // 🌟 로컬용: 'scores' 컬렉션 직접 사용 (권한 설정 필요)
+                const colRef = collection(db, 'scores');
 
                 // 1. 내 점수 저장
                 const docRef = await addDoc(colRef, {
@@ -287,15 +293,18 @@
 
             } catch (e) {
                 console.error("Ranking System Error:", e);
-                return { rank: '오류', topScore: '-', topName: '-', isNewRecord: false };
+                // 권한 오류 시 안내
+                if(e.code === 'permission-denied') {
+                    alert("데이터베이스 권한 오류!\nFirebase Console -> Firestore Database -> 규칙(Rules) 탭에서\n allow read, write: if true; 로 설정해주세요.");
+                }
+                return { rank: 'Error', topScore: '-', topName: '-', isNewRecord: false };
             }
         };
 
         window.updatePlayerName = async (docId, newName) => {
             if (!db || !docId) return;
             try {
-                // 경로 수정됨
-                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'scores', docId);
+                const docRef = doc(db, 'scores', docId);
                 await updateDoc(docRef, { name: newName });
                 return true;
             } catch(e) {
