@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Chess Defense: Local</title>
+    <title>Chess Defense: My Ranking</title>
     <style>
         /* 모바일 기본 설정 */
         body {
@@ -208,13 +208,13 @@
 
     </style>
     
-    <!-- Firebase SDK -->
+    <!-- Firebase SDK (CDN 방식) -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, getDocs, serverTimestamp, updateDoc, doc, limit, query, orderBy } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // 🔥 사용자가 제공한 Firebase 설정 키 (로컬용)
+        // 🔥 입력해주신 님의 Firebase 설정 값 적용 완료 🔥
         const firebaseConfig = {
             apiKey: "AIzaSyAQc4zmexSGF19tSTJs6pTgtFOE0z--6XA",
             authDomain: "game-28340361-cd827.firebaseapp.com",
@@ -232,9 +232,10 @@
             db = getFirestore(app);
             
             // 로컬 실행을 위한 익명 로그인 자동 실행
-            signInAnonymously(auth).catch(e => {
+            signInAnonymously(auth).then(() => {
+                console.log("Firebase 로그인 성공!");
+            }).catch(e => {
                 console.error("Firebase Login Failed:", e);
-                alert("랭킹 서버 연결 실패. 인터넷 연결을 확인하세요.");
             });
 
         } catch(e) {
@@ -257,11 +258,14 @@
             if (!db) return { rank: '설정 오류', topScore: '-', topName: '-', isNewRecord: false };
 
             try {
-                // 로그인 완료 대기
-                await authReady;
-                if (!auth.currentUser) return { rank: '연결 중...', topScore: '-', topName: '-', isNewRecord: false };
+                // 로그인 완료 대기 (최대 3초)
+                const timeoutPromise = new Promise(r => setTimeout(r, 3000));
+                await Promise.race([authReady, timeoutPromise]);
+                
+                // 로그인 안 됐으면 임시 ID 사용
+                const uid = auth.currentUser ? auth.currentUser.uid : 'guest_' + Math.random().toString(36).substr(2, 9);
 
-                // 🌟 로컬용: 'scores' 컬렉션 직접 사용 (권한 설정 필요)
+                // 🌟 'scores' 컬렉션 사용 (규칙 설정 필요!)
                 const colRef = collection(db, 'scores');
 
                 // 1. 내 점수 저장
@@ -269,7 +273,7 @@
                     score: finalScore,
                     name: "Unknown",
                     ts: serverTimestamp(),
-                    uid: auth.currentUser.uid
+                    uid: uid
                 });
 
                 // 2. 전체 점수 가져와서 랭킹 산정
@@ -293,9 +297,8 @@
 
             } catch (e) {
                 console.error("Ranking System Error:", e);
-                // 권한 오류 시 안내
                 if(e.code === 'permission-denied') {
-                    alert("데이터베이스 권한 오류!\nFirebase Console -> Firestore Database -> 규칙(Rules) 탭에서\n allow read, write: if true; 로 설정해주세요.");
+                    alert("데이터베이스 권한 오류!\nFirebase Console -> Firestore Database -> 규칙(Rules) 탭에서\nallow read, write: if true; 로 설정해주세요.");
                 }
                 return { rank: 'Error', topScore: '-', topName: '-', isNewRecord: false };
             }
@@ -386,7 +389,7 @@
     <div id="bottom-bar">
         <div class="unit-btn" id="btn-king" onclick="selectUnitType('king')">
             <div class="unit-icon" style="font-size:24px">♚</div>
-            <div class="unit-cost">80</div>
+            <div class="unit-cost">100</div>
             <div style="font-size:9px; color:#ccc">킹(자원)</div>
         </div>
         <div class="unit-btn" id="btn-pawn" onclick="selectUnitType('pawn')">
@@ -396,7 +399,7 @@
         </div>
         <div class="unit-btn" id="btn-rook" onclick="selectUnitType('rook')">
             <div class="unit-icon" style="font-size:24px">♜</div>
-            <div class="unit-cost">100</div>
+            <div class="unit-cost">210</div>
             <div style="font-size:9px; color:#ccc">룩(직선)</div>
         </div>
         <div class="unit-btn" id="btn-bishop" onclick="selectUnitType('bishop')">
@@ -406,12 +409,12 @@
         </div>
         <div class="unit-btn" id="btn-knight" onclick="selectUnitType('knight')">
             <div class="unit-icon" style="font-size:24px">♞</div>
-            <div class="unit-cost">150</div>
+            <div class="unit-cost">200</div>
             <div style="font-size:9px; color:#ccc">나이트(범위)</div>
         </div>
         <div class="unit-btn" id="btn-queen" onclick="selectUnitType('queen')">
             <div class="unit-icon" style="font-size:24px">♛</div>
-            <div class="unit-cost">250</div>
+            <div class="unit-cost">500</div>
             <div style="font-size:9px; color:#ccc">퀸(멀티)</div>
         </div>
     </div>
