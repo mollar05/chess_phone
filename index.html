@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Chess Defense: Mobile Optimized</title>
+    <title>Chess Defense: Ranking</title>
     <style>
         /* 모바일 기본 설정 */
         body {
@@ -41,8 +41,9 @@
         }
 
         .energy-count { color: #ffd700; font-size: 20px; }
+        .score-display { color: #fff; font-size: 14px; margin-left: 10px; }
         .wave-text { color: #00e5ff; font-size: 16px; margin-left: 5px; text-shadow: 0 0 5px #00e5ff;}
-        .progress-bar-bg { width: 80px; height: 8px; background: #333; border-radius: 4px; overflow: hidden; margin-left: 10px; }
+        .progress-bar-bg { width: 60px; height: 8px; background: #333; border-radius: 4px; overflow: hidden; margin-left: 10px; }
         .progress-bar-fill { height: 100%; background: #ff4444; width: 0%; transition: width 0.3s; }
 
         /* 게임 캔버스 영역 */
@@ -61,11 +62,10 @@
             box-shadow: 0 0 20px rgba(0,0,0,0.5);
             max-width: 100%;
             max-height: 100%;
-            /* 캔버스 비율 유지 */
             aspect-ratio: 900/500;
         }
 
-        /* 🃏 카드 선택 오버레이 (모바일 반응형) */
+        /* 🃏 카드 선택 오버레이 */
         #card-selection {
             position: absolute;
             top: 0; left: 0; width: 100%; height: 100%;
@@ -85,14 +85,14 @@
             justify-content: center;
             gap: 2%;
             width: 95%;
-            height: 60%; /* 화면 높이의 60% 사용 */
+            height: 60%;
         }
 
         .card {
             background: linear-gradient(145deg, #2a2a2a, #333);
             border: 2px solid #555;
             border-radius: 12px;
-            width: 31%; /* 3개 균등 분할 */
+            width: 31%;
             height: 100%;
             padding: 10px 5px;
             display: flex;
@@ -107,13 +107,11 @@
 
         .card:active { transform: scale(0.95); border-color: #ffd700; background: #3a3a3a; }
         
-        /* 카드 내부 폰트 반응형 (vw 단위 사용) */
         .card-icon { font-size: 8vw; margin-bottom: 5px; margin-top: 10px;}
         .card-title { font-weight: bold; color: #fff; margin-bottom: 5px; font-size: 3.5vw; white-space: nowrap;}
         .card-desc { font-size: 2.8vw; color: #ccc; line-height: 1.3; padding: 0 5px; word-break: keep-all; flex: 1; display: flex; align-items: center; justify-content: center;}
         .card-rare { color: #ffd700; font-size: 2.5vw; margin-top: 5px; margin-bottom: 10px; border: 1px solid #ffd700; padding: 2px 8px; border-radius: 10px;}
 
-        /* PC/태블릿 등 큰 화면일 때 폰트 크기 제한 */
         @media (min-width: 600px) {
             #card-selection h2 { font-size: 30px; }
             #card-selection p { font-size: 16px; }
@@ -125,8 +123,7 @@
             .card { width: 160px; height: 240px; }
         }
 
-
-        /* 업그레이드 및 판매 패널 */
+        /* 업그레이드 패널 */
         #upgrade-panel {
             position: absolute;
             bottom: 20px; left: 50%; transform: translateX(-50%);
@@ -159,7 +156,7 @@
             background: #333;
             border: 2px solid #444;
             border-radius: 8px;
-            width: 18%;
+            width: 15%;
             height: 90%;
             display: flex;
             flex-direction: column;
@@ -170,23 +167,99 @@
         }
         .unit-btn.selected { border-color: #ffd700; background: #4a4a3a; }
         .unit-btn.disabled { opacity: 0.4; filter: grayscale(100%); }
-        .unit-cost { font-size: 12px; color: #ffd700; font-weight: bold; }
+        .unit-cost { font-size: 11px; color: #ffd700; font-weight: bold; }
 
-        /* 오버레이 */
+        /* 오버레이 (게임오버/시작) */
         #overlay {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.85); display: flex; flex-direction: column;
+            background: rgba(0,0,0,0.9); display: flex; flex-direction: column;
             justify-content: center; align-items: center; z-index: 100;
         }
-        .big-btn { padding: 15px 40px; font-size: 24px; background: #ffd700; border: none; border-radius: 30px; font-weight: bold; cursor: pointer; }
+        .big-btn { padding: 15px 40px; font-size: 24px; background: #ffd700; border: none; border-radius: 30px; font-weight: bold; cursor: pointer; margin-top: 20px; }
+        
+        #rank-info {
+            background: rgba(255,255,255,0.1);
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            margin-top: 15px;
+            width: 80%;
+            max-width: 300px;
+            border: 1px solid #555;
+        }
+        .rank-stat { font-size: 18px; color: #ccc; margin: 5px 0; }
+        .rank-val { color: #ffd700; font-weight: bold; font-size: 22px; }
 
     </style>
+    
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, getDocs, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        const firebaseConfig = JSON.parse(__firebase_config);
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+        let currentUser = null;
+
+        // 인증 초기화
+        const initAuth = async () => {
+            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                await signInWithCustomToken(auth, __initial_auth_token);
+            } else {
+                await signInAnonymously(auth);
+            }
+        };
+        initAuth();
+        onAuthStateChanged(auth, (user) => { currentUser = user; });
+
+        // 점수 저장 및 랭킹 조회 함수 (window에 등록하여 메인 스크립트에서 호출)
+        window.submitScoreAndGetRank = async (finalScore) => {
+            if (!currentUser) return { rank: '-', top: '-' };
+
+            const col = collection(db, 'artifacts', appId, 'public', 'data', 'scores');
+            
+            try {
+                // 1. 점수 저장
+                await addDoc(col, {
+                    score: finalScore,
+                    ts: serverTimestamp()
+                });
+
+                // 2. 전체 점수 가져오기 (단순 쿼리 규칙 준수)
+                const snapshot = await getDocs(col);
+                const scores = [];
+                snapshot.forEach(doc => {
+                    if (typeof doc.data().score === 'number') {
+                        scores.push(doc.data().score);
+                    }
+                });
+
+                // 3. 정렬 (내림차순)
+                scores.sort((a, b) => b - a);
+
+                // 4. 내 등수 및 1등 점수 계산
+                const rank = scores.indexOf(finalScore) + 1;
+                const top = scores[0];
+
+                return { rank, top };
+            } catch(e) {
+                console.error("Rank Error:", e);
+                return { rank: '?', top: '?' };
+            }
+        };
+    </script>
 </head>
 <body>
 
     <div id="top-hud">
         <div class="hud-item">
             <span>⚡</span><span class="energy-count" id="ui-energy">150</span>
+            <span class="score-display">(점수: <span id="ui-score">0</span>)</span>
         </div>
         <div class="hud-item">
             <span class="wave-text" id="ui-wave">Wave 1</span>
@@ -215,41 +288,58 @@
             <button class="action-btn btn-close" onclick="closeUpgradePanel()">닫기</button>
         </div>
 
-        <!-- 시작 화면 -->
+        <!-- 시작/종료 화면 -->
         <div id="overlay">
             <h1 style="color:#ffd700; margin-bottom:10px; font-size:32px;">🃏 Chess Defense</h1>
-            <p style="color:#ccc; text-align:center; margin-bottom:30px; line-height:1.5;">
-                폰 강화비용 30G!<br>전략적으로 막아내세요.
+            <p id="overlay-msg" style="color:#ccc; text-align:center; margin-bottom:20px; line-height:1.5;">
+                랭킹 시스템 도입!<br>
+                당신의 점수는 기록됩니다.
             </p>
-            <button class="big-btn" onclick="startGame()">게임 시작</button>
+            
+            <!-- 랭킹 표시 영역 (게임 오버 시 표시) -->
+            <div id="rank-info" style="display:none;">
+                <div class="rank-stat">내 점수</div>
+                <div class="rank-val" id="res-score">0</div>
+                <hr style="border-color:#444; margin:10px 0;">
+                <div class="rank-stat">내 순위</div>
+                <div class="rank-val" id="res-rank" style="color:#00e5ff;">계산 중...</div>
+                <div class="rank-stat" style="font-size:14px; margin-top:10px;">🏆 전체 1등: <span id="res-top" style="color:#fff;">-</span></div>
+            </div>
+
+            <button class="big-btn" id="start-btn" onclick="startGame()">게임 시작</button>
         </div>
     </div>
 
     <div id="bottom-bar">
         <div class="unit-btn" id="btn-king" onclick="selectUnitType('king')">
-            <div class="unit-icon" style="font-size:26px">♚</div>
+            <div class="unit-icon" style="font-size:24px">♚</div>
             <div class="unit-cost">80</div>
-            <div style="font-size:10px; color:#ccc">킹 (자원)</div>
+            <div style="font-size:9px; color:#ccc">킹(자원)</div>
         </div>
         <div class="unit-btn" id="btn-pawn" onclick="selectUnitType('pawn')">
-            <div class="unit-icon" style="font-size:26px">♟️</div>
+            <div class="unit-icon" style="font-size:24px">♟️</div>
             <div class="unit-cost">50</div>
-            <div style="font-size:10px; color:#ccc">폰 (방패)</div>
+            <div style="font-size:9px; color:#ccc">폰(방패)</div>
         </div>
         <div class="unit-btn" id="btn-rook" onclick="selectUnitType('rook')">
-            <div class="unit-icon" style="font-size:26px">♜</div>
+            <div class="unit-icon" style="font-size:24px">♜</div>
             <div class="unit-cost">100</div>
-            <div style="font-size:10px; color:#ccc">룩 (직선)</div>
+            <div style="font-size:9px; color:#ccc">룩(직선)</div>
         </div>
         <div class="unit-btn" id="btn-bishop" onclick="selectUnitType('bishop')">
-            <div class="unit-icon" style="font-size:26px">♝</div>
+            <div class="unit-icon" style="font-size:24px">♝</div>
             <div class="unit-cost">120</div>
-            <div style="font-size:10px; color:#ccc">비숍 (대각)</div>
+            <div style="font-size:9px; color:#ccc">비숍(대각)</div>
         </div>
         <div class="unit-btn" id="btn-knight" onclick="selectUnitType('knight')">
-            <div class="unit-icon" style="font-size:26px">♞</div>
+            <div class="unit-icon" style="font-size:24px">♞</div>
             <div class="unit-cost">150</div>
-            <div style="font-size:10px; color:#ccc">나이트 (범위)</div>
+            <div style="font-size:9px; color:#ccc">나이트(범위)</div>
+        </div>
+        <div class="unit-btn" id="btn-queen" onclick="selectUnitType('queen')">
+            <div class="unit-icon" style="font-size:24px">♛</div>
+            <div class="unit-cost">250</div>
+            <div style="font-size:9px; color:#ccc">퀸(멀티)</div>
         </div>
     </div>
 
@@ -257,7 +347,6 @@
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
 
-    // 게임 설정
     const GAME_WIDTH = 900;
     const GAME_HEIGHT = 500;
     canvas.width = GAME_WIDTH;
@@ -267,20 +356,22 @@
     const COLS = 9;
     const ROWS = 5;
 
-    // 변수
     let isPlaying = false;
     let isPaused = false;
     let energy = 150;
+    let score = 0; // 🏆 누적 점수 변수 추가
     let frame = 0;
     
-    // 웨이브
     let wave = 1;
     let enemiesToSpawn = 0;
     let enemiesSpawned = 0;
     let enemiesKilled = 0;
     let waveTotalEnemies = 0;
 
-    let globalBuffs = { dmgMult: 1.0, spdMult: 1.0, costMult: 1.0, hpMult: 1.0, kingGold: 0 };
+    let globalBuffs = { 
+        dmgMult: 1.0, spdMult: 1.0, costMult: 1.0, hpMult: 1.0, kingGold: 0,
+        enemySpeedMult: 1.0, goldPerKill: 0, rangeMult: 1.0, critChance: 0, sellRefund: 0.5
+    };
 
     let selectedType = null;
     let focusedUnit = null;
@@ -291,14 +382,13 @@
     let particles = [];
     let floatingTexts = [];
 
-    // 유닛 데이터
     const UNITS = {
-        'king':   { cost: 80,  hp: 200, dmg: 10,  spd: 120, upCost: 100, color: '#ffd700', icon: '♚', name: '킹' },
-        // 🔥 폰 강화비용 30으로 수정
+        'king':   { cost: 100,  hp: 200, dmg: 1,   spd: 120, upCost: 100, color: '#ffd700', icon: '♚', name: '킹' },
         'pawn':   { cost: 50,  hp: 400, dmg: 10,  spd: 60,  upCost: 30,  color: '#aaa',    icon: '♟️', name: '폰' },
-        'rook':   { cost: 100, hp: 200, dmg: 30,  spd: 50,  upCost: 120, color: '#4a90e2', icon: '♜', name: '룩' },
+        'rook':   { cost: 210, hp: 200, dmg: 30,  spd: 50,  upCost: 120, color: '#4a90e2', icon: '♜', name: '룩' },
         'bishop': { cost: 120, hp: 150, dmg: 40,  spd: 60,  upCost: 150, color: '#9013fe', icon: '♝', name: '비숍' },
-        'knight': { cost: 150, hp: 300, dmg: 75,  spd: 40,  upCost: 200, color: '#7ed321', icon: '♞', name: '나이트' }
+        'knight': { cost: 200, hp: 300, dmg: 37,  spd: 40,  upCost: 200, color: '#7ed321', icon: '♞', name: '나이트' },
+        'queen':  { cost: 500, hp: 500, dmg: 25,  spd: 45,  upCost: 300, color: '#ff00ff', icon: '♛', name: '퀸' }
     };
 
     const CARD_POOL = [
@@ -307,14 +397,25 @@
         { id: 'hp_up',    icon: '🛡️', title: '강철 갑옷', desc: '아군 체력 +25%' },
         { id: 'cost_dn',  icon: '💰', title: '자원 절약', desc: '배치 비용 -10%' },
         { id: 'king_up',  icon: '👑', title: '왕의 세금', desc: '킹 자원생산 +5' },
-        { id: 'rich',     icon: '💎', title: '보급품',    desc: '즉시 자원 +200' }
+        { id: 'rich',     icon: '💎', title: '보급품',    desc: '즉시 자원 +200' },
+        { id: 'heal_all', icon: '💊', title: '긴급 수리', desc: '모든 아군 체력 100% 회복' },
+        { id: 'slow',     icon: '❄️', title: '얼음 지대', desc: '적 이동속도 -10%' },
+        { id: 'bounty',   icon: '💰', title: '현상금',    desc: '적 처치 시 +3골드' },
+        { id: 'range',    icon: '🔭', title: '저격 훈련', desc: '폰/나이트 사거리 +20%' },
+        { id: 'crit',     icon: '⚡', title: '치명타',    desc: '10% 확률로 2배 데미지' },
+        { id: 'recycle',  icon: '♻️', title: '재활용',    desc: '판매 환급률 80%로 증가' }
     ];
 
-    /**
-     * 🕹️ 게임 로직
-     */
+    const ENEMY_TYPES = [
+        { minWave: 1,  type: 'normal', color: '#e74c3c', hpMult: 1.0, spdMult: 1.0, radius: 35, ability: null },
+        { minWave: 5,  type: 'fast',   color: '#f1c40f', hpMult: 0.6, spdMult: 1.5, radius: 25, ability: 'dodge' },
+        { minWave: 10, type: 'tank',   color: '#8e44ad', hpMult: 2.5, spdMult: 0.6, radius: 45, ability: 'armor' },
+        { minWave: 15, type: 'boss',   color: '#2c3e50', hpMult: 5.0, spdMult: 0.4, radius: 50, ability: 'stun' }
+    ];
+
     function startGame() {
         document.getElementById('overlay').style.display = 'none';
+        document.getElementById('rank-info').style.display = 'none'; // 랭킹 숨김
         initGame();
         startWave(1);
         animate();
@@ -322,9 +423,13 @@
 
     function initGame() {
         defenders = []; enemies = []; projectiles = []; particles = []; floatingTexts = [];
-        energy = 150; frame = 0; isPlaying = true; isPaused = false;
-        globalBuffs = { dmgMult: 1.0, spdMult: 1.0, costMult: 1.0, hpMult: 1.0, kingGold: 0 };
+        energy = 150; score = 0; frame = 0; isPlaying = true; isPaused = false;
+        globalBuffs = { 
+            dmgMult: 1.0, spdMult: 1.0, costMult: 1.0, hpMult: 1.0, kingGold: 0,
+            enemySpeedMult: 1.0, goldPerKill: 0, rangeMult: 1.0, critChance: 0, sellRefund: 0.5
+        };
         closeUpgradePanel();
+        updateUI();
     }
 
     function startWave(waveNum) {
@@ -368,24 +473,35 @@
             case 'hp_up':  globalBuffs.hpMult += 0.25; break;
             case 'cost_dn': globalBuffs.costMult *= 0.9; break;
             case 'king_up': globalBuffs.kingGold += 5; break;
-            case 'rich': energy += 200; break;
+            case 'rich': 
+                energy += 200; score += 200; // 보너스 점수
+                break;
+            case 'heal_all': 
+                defenders.forEach(d => { d.hp = d.maxHp; spawnFloatingText("Heal!", d.x+50, d.y, '#00ff00'); }); 
+                break;
+            case 'slow': globalBuffs.enemySpeedMult *= 0.9; break;
+            case 'bounty': globalBuffs.goldPerKill += 3; break;
+            case 'range': globalBuffs.rangeMult += 0.2; break;
+            case 'crit': globalBuffs.critChance += 0.1; break;
+            case 'recycle': globalBuffs.sellRefund = 0.8; break;
         }
+
         defenders.forEach(d => d.applyBuffs());
         document.getElementById('card-selection').style.display = 'none';
         isPaused = false;
         startWave(wave + 1);
+        updateUI();
     }
 
-    /**
-     * 👆 입력 및 UI
-     */
     function updateUI() {
         document.getElementById('ui-energy').innerText = Math.floor(energy);
+        document.getElementById('ui-score').innerText = Math.floor(score);
         document.getElementById('ui-wave').innerText = `Wave ${wave}`;
+        
         const progress = Math.min(100, (enemiesKilled / waveTotalEnemies) * 100);
         document.getElementById('wave-progress').style.width = `${progress}%`;
 
-        ['king', 'pawn', 'rook', 'bishop', 'knight'].forEach(t => {
+        ['king', 'pawn', 'rook', 'bishop', 'knight', 'queen'].forEach(t => {
             const btn = document.getElementById(`btn-${t}`);
             const realCost = Math.floor(UNITS[t].cost * globalBuffs.costMult);
             btn.querySelector('.unit-cost').innerText = realCost;
@@ -435,7 +551,6 @@
         }
     }
 
-    // --- 💰 업그레이드 & 판매 로직 ---
     function openUpgradePanel(unit) {
         focusedUnit = unit;
         const panel = document.getElementById('upgrade-panel');
@@ -443,7 +558,7 @@
         
         const baseCost = UNITS[unit.type].cost;
         const invest = baseCost + ((unit.level - 1) * UNITS[unit.type].upCost);
-        const sellPrice = Math.floor(invest / 2);
+        const sellPrice = Math.floor(invest * globalBuffs.sellRefund);
 
         document.getElementById('upgrade-info').innerText = `Lv.${unit.level} ${UNITS[unit.type].name}`;
         let statText = (unit.type === 'king') ? `생산량 +5` : `공격력 +30%`;
@@ -477,7 +592,7 @@
         if (!focusedUnit) return;
         const baseCost = UNITS[focusedUnit.type].cost;
         const invest = baseCost + ((focusedUnit.level - 1) * UNITS[focusedUnit.type].upCost);
-        const sellPrice = Math.floor(invest / 2);
+        const sellPrice = Math.floor(invest * globalBuffs.sellRefund);
 
         energy += sellPrice;
         spawnFloatingText(`+${sellPrice} G`, focusedUnit.x+50, focusedUnit.y, '#ffd700');
@@ -491,15 +606,13 @@
     canvas.addEventListener('mousedown', e => handleInput(e.clientX, e.clientY));
     canvas.addEventListener('touchstart', e => { e.preventDefault(); handleInput(e.touches[0].clientX, e.touches[0].clientY); }, { passive: false });
 
-    /**
-     * 🏗️ 클래스 정의
-     */
     class Defender {
         constructor(x, y, type) {
             this.x = x; this.y = y; this.type = type;
             this.level = 1; this.baseStats = UNITS[type];
             this.color = this.baseStats.color; this.icon = this.baseStats.icon;
             this.timer = 0; this.applyBuffs(); this.hp = this.maxHp;
+            this.stunTimer = 0;
         }
 
         applyBuffs() {
@@ -519,31 +632,50 @@
         levelUp() { this.level++; this.applyBuffs(); this.hp = this.maxHp; }
 
         update() {
+            if (this.stunTimer > 0) {
+                this.stunTimer--;
+                return;
+            }
             this.timer++; if (this.timer % this.cd === 0) this.act();
         }
 
         act() {
             const cx = this.x + 50, cy = this.y + 50;
             if (this.type === 'king') {
-                energy += this.damage; spawnFloatingText(`+${this.damage}`, cx, this.y, '#ffd700'); updateUI(); return;
+                energy += this.damage; 
+                score += this.damage; // 🏆 생산 점수
+                spawnFloatingText(`+${this.damage}`, cx, this.y, '#ffd700'); updateUI(); return;
             }
+            
+            let finalDmg = this.damage;
+            let isCrit = false;
+            if (Math.random() < globalBuffs.critChance) {
+                finalDmg *= 2;
+                isCrit = true;
+            }
+
             if (this.type === 'knight') { 
+                 let range = 330 * globalBuffs.rangeMult;
                  let hit = false;
                  enemies.forEach(e => {
-                    if (Math.hypot((e.x+50)-cx, (e.y+50)-cy) < 330) {
-                        e.takeDamage(this.damage);
+                    if (Math.hypot((e.x+50)-cx, (e.y+50)-cy) < range) {
+                        e.takeDamage(finalDmg, isCrit);
                         spawnParticles(e.x+50, e.y+50, 2, '#fff');
                         hit = true;
                     }
                 });
                 if(hit) this.effect = true;
             } else if (this.type === 'bishop') {
-                 projectiles.push(new Projectile(cx, cy, this.damage, -0.6, this.color));
-                 projectiles.push(new Projectile(cx, cy, this.damage, 0.6, this.color));
+                 projectiles.push(new Projectile(cx, cy, finalDmg, -0.6, this.color, isCrit));
+                 projectiles.push(new Projectile(cx, cy, finalDmg, 0.6, this.color, isCrit));
+            } else if (this.type === 'queen') {
+                 projectiles.push(new Projectile(cx, cy, finalDmg, 0, this.color, isCrit));
+                 projectiles.push(new Projectile(cx, cy, finalDmg, -0.6, this.color, isCrit));
+                 projectiles.push(new Projectile(cx, cy, finalDmg, 0.6, this.color, isCrit));
             } else { 
-                let range = (this.type === 'pawn') ? 180 : 900;
+                let range = (this.type === 'pawn') ? (180 * globalBuffs.rangeMult) : 900;
                 if (enemies.some(e => e.y === this.y && e.x > this.x && e.x < this.x + range)) {
-                    projectiles.push(new Projectile(cx, cy, this.damage, 0, this.color));
+                    projectiles.push(new Projectile(cx, cy, finalDmg, 0, this.color, isCrit));
                 }
             }
         }
@@ -551,13 +683,19 @@
         draw() {
             ctx.fillStyle = '#333'; ctx.fillRect(this.x+5, this.y+5, 90, 90);
             ctx.fillStyle = this.color; ctx.font = '50px Arial'; ctx.textAlign = 'center'; ctx.fillText(this.icon, this.x+50, this.y+65);
+            
+            if (this.stunTimer > 0) {
+                ctx.font = '30px Arial'; ctx.fillText('💫', this.x+50, this.y+40);
+            }
+
             let stars = "⭐".repeat(Math.min(3, this.level)); if (this.level > 3) stars = `⭐Lv.${this.level}`;
             ctx.font = '12px Arial'; ctx.fillStyle = '#fff'; ctx.fillText(stars, this.x+50, this.y+20);
             const pct = this.hp/this.maxHp;
             ctx.fillStyle = '#000'; ctx.fillRect(this.x+10, this.y+80, 80, 6);
             ctx.fillStyle = pct > 0.3 ? '#2ecc71' : '#e74c3c'; ctx.fillRect(this.x+10, this.y+80, 80*pct, 6);
             if(this.effect) {
-                ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(this.x+50, this.y+50, 150, 0, Math.PI*2); ctx.stroke();
+                ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.beginPath(); 
+                ctx.arc(this.x+50, this.y+50, 330 * globalBuffs.rangeMult / 2, 0, Math.PI*2); ctx.stroke();
                 this.effect = false;
             }
         }
@@ -567,11 +705,46 @@
         constructor() {
             this.y = Math.floor(Math.random() * ROWS) * CELL_SIZE;
             this.x = GAME_WIDTH;
-            this.hp = 80 + (wave * 30); this.maxHp = this.hp;
-            this.speed = Math.random() * 0.4 + 0.4 + (wave * 0.05); this.moveSpeed = this.speed;
+            
+            const available = ENEMY_TYPES.filter(e => wave >= e.minWave);
+            const typeData = available[Math.floor(Math.random() * available.length)];
+            
+            this.type = typeData.type;
+            this.color = typeData.color;
+            this.radius = typeData.radius;
+            this.ability = typeData.ability;
+
+            let baseHp = 80 + (wave * 30);
+            if (wave === 1) baseHp *= 0.5;
+            
+            this.hp = baseHp * typeData.hpMult;
+            this.maxHp = this.hp;
+
+            let baseSpeed = Math.random() * 0.4 + 0.4 + (wave * 0.02);
+            this.speed = baseSpeed * typeData.spdMult;
+            this.moveSpeed = this.speed;
+            
+            this.skillTimer = 0;
         }
         update() {
-            this.moveSpeed = this.speed;
+            this.moveSpeed = this.speed * globalBuffs.enemySpeedMult;
+            
+            if (this.ability === 'stun') {
+                this.skillTimer++;
+                if (this.skillTimer > 300) {
+                    this.skillTimer = 0;
+                    let stunned = false;
+                    defenders.forEach(d => {
+                        if (Math.hypot((d.x+50)-this.x, (d.y+50)-this.y) < 200) {
+                            d.stunTimer = 120;
+                            spawnFloatingText("Stun!", d.x+50, d.y, '#ffff00');
+                            stunned = true;
+                        }
+                    });
+                    if(stunned) spawnParticles(this.x, this.y+50, 20, '#ffff00');
+                }
+            }
+
             for (let d of defenders) {
                 if (d.y === this.y && this.x < d.x + 80 && this.x > d.x) {
                     this.moveSpeed = 0; d.hp -= 0.5;
@@ -580,27 +753,68 @@
             }
             this.x -= this.moveSpeed;
         }
-        takeDamage(amount) { this.hp -= amount; spawnFloatingText(amount, this.x+50, this.y, '#ff4444'); }
+        
+        takeDamage(amount, isCrit) { 
+            if (this.ability === 'dodge' && Math.random() < 0.3) {
+                spawnFloatingText("Miss", this.x+50, this.y, '#ccc', 14);
+                return;
+            }
+            if (this.ability === 'armor') {
+                amount = Math.max(1, amount - 10);
+                if (Math.random() < 0.3) spawnFloatingText("Block", this.x+50, this.y-20, '#888', 12);
+            }
+            this.hp -= amount; 
+            spawnFloatingText(Math.floor(amount), this.x+50, this.y, isCrit ? '#ff00ff' : '#ff4444', isCrit ? 24 : 18); 
+        }
+        
         draw() {
-            ctx.fillStyle = '#e74c3c'; ctx.beginPath(); ctx.arc(this.x+50, this.y+50, 35, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = this.color; 
+            ctx.beginPath(); ctx.arc(this.x+50, this.y+50, this.radius, 0, Math.PI*2); ctx.fill();
+            
             ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(this.x+35, this.y+45, 8, 0, Math.PI*2); ctx.arc(this.x+65, this.y+45, 8, 0, Math.PI*2); ctx.fill();
-            ctx.fillStyle = '#000'; ctx.fillRect(this.x+20, this.y-10, 60, 5);
-            ctx.fillStyle = '#e74c3c'; ctx.fillRect(this.x+20, this.y-10, 60*(this.hp/this.maxHp), 5);
+            
+            // 🔥 체력바 위치 보정: 맨 위 줄(y < 10)이면 발 밑에 표시, 아니면 머리 위에 표시
+            let hpY = (this.y < 10) ? this.y + 85 : this.y - 15;
+
+            ctx.fillStyle = '#000'; ctx.fillRect(this.x+20, hpY, 60, 5);
+            ctx.fillStyle = this.color; ctx.fillRect(this.x+20, hpY, 60*(this.hp/this.maxHp), 5);
+            
+            if (globalBuffs.enemySpeedMult < 1.0) {
+                 ctx.fillStyle = '#00e5ff'; ctx.font = '12px Arial'; ctx.fillText('❄️', this.x+50, this.y+80);
+            }
         }
     }
 
     class Projectile {
-        constructor(x, y, dmg, dy, color) { this.x = x; this.y = y; this.dmg = dmg; this.dy = dy; this.color = color; this.speed = 10; }
+        constructor(x, y, dmg, dy, color, isCrit) { 
+            this.x = x; this.y = y; this.dmg = dmg; this.dy = dy; this.color = color; 
+            this.speed = 10; this.isCrit = isCrit;
+        }
         update() { this.x += this.speed; this.y += this.dy * this.speed; }
-        draw() { ctx.fillStyle = this.color; ctx.beginPath(); ctx.arc(this.x, this.y, 8, 0, Math.PI*2); ctx.fill(); }
+        draw() { 
+            ctx.fillStyle = this.isCrit ? '#fff' : this.color; 
+            ctx.beginPath(); 
+            ctx.arc(this.x, this.y, this.isCrit ? 10 : 8, 0, Math.PI*2); 
+            ctx.fill(); 
+            if(this.isCrit) {
+                ctx.strokeStyle = this.color; ctx.lineWidth = 2; ctx.stroke();
+            }
+        }
     }
 
     class FloatingText {
-        constructor(text, x, y, color='#fff') { this.text = text; this.x = x; this.y = y; this.color = color; this.life = 1.0; this.dy = -1; }
+        constructor(text, x, y, color='#fff', size=18) { 
+            this.text = text; this.x = x; this.y = y; this.color = color; this.size = size;
+            this.life = 1.0; this.dy = -1; 
+        }
         update() { this.y += this.dy; this.life -= 0.03; }
-        draw() { ctx.globalAlpha = Math.max(0, this.life); ctx.fillStyle = this.color; ctx.font = 'bold 18px Arial'; ctx.textAlign='center'; ctx.fillText(this.text, this.x, this.y); ctx.globalAlpha = 1.0; }
+        draw() { 
+            ctx.globalAlpha = Math.max(0, this.life); ctx.fillStyle = this.color; 
+            ctx.font = `bold ${this.size}px Arial`; ctx.textAlign='center'; 
+            ctx.fillText(this.text, this.x, this.y); ctx.globalAlpha = 1.0; 
+        }
     }
-    function spawnFloatingText(text, x, y, color) { floatingTexts.push(new FloatingText(text, x, y, color)); }
+    function spawnFloatingText(text, x, y, color, size) { floatingTexts.push(new FloatingText(text, x, y, color, size)); }
 
     class Particle {
         constructor(x, y, color) { this.x = x; this.y = y; this.color = color; this.vx = (Math.random()-0.5)*5; this.vy = (Math.random()-0.5)*5; this.life = 1.0; }
@@ -629,20 +843,39 @@
         }
 
         defenders.forEach(d => d.update());
-        // 정렬: Y좌표가 더 큰(아래에 있는) 유닛을 나중에 그림 -> 가려짐 해결
         defenders.sort((a,b) => a.y - b.y);
         defenders.forEach(d => d.draw());
 
         enemies.forEach((e, i) => {
             e.update(); e.draw();
+            // 💀 게임 오버 처리
             if (e.x < 0) {
                 isPlaying = false;
                 document.querySelector('#overlay h1').innerText = "GAME OVER";
-                document.querySelector('#overlay p').innerText = `최종 웨이브: ${wave}\n점수: ${energy}`;
+                document.querySelector('#overlay-msg').innerText = "점수를 저장하고 있습니다...";
                 document.getElementById('overlay').style.display = 'flex';
+                document.getElementById('start-btn').style.display = 'none'; // 로딩 중 버튼 숨김
+                document.getElementById('rank-info').style.display = 'block';
+                
+                document.getElementById('res-score').innerText = Math.floor(score);
+
+                // 🔥 랭킹 서버 전송 및 조회
+                if(window.submitScoreAndGetRank) {
+                    window.submitScoreAndGetRank(Math.floor(score)).then(res => {
+                        document.getElementById('res-rank').innerText = `${res.rank}위`;
+                        document.getElementById('res-top').innerText = `${res.top}`;
+                        document.querySelector('#overlay-msg').innerText = "수고하셨습니다!";
+                        document.getElementById('start-btn').innerText = "다시 하기";
+                        document.getElementById('start-btn').style.display = 'block';
+                    });
+                }
             }
             if (e.hp <= 0) {
-                enemies.splice(i, 1); energy += 10; enemiesKilled++; updateUI();
+                enemies.splice(i, 1); 
+                let gain = 10 + globalBuffs.goldPerKill;
+                energy += gain; 
+                score += gain; // 🏆 킬 점수
+                enemiesKilled++; updateUI();
                 spawnParticles(e.x+50, e.y+50, 10, '#e74c3c');
                 checkWaveClear();
             }
@@ -651,8 +884,9 @@
             p.update(); p.draw();
             if (p.x > GAME_WIDTH || p.y < 0 || p.y > GAME_HEIGHT) { projectiles.splice(i, 1); return; }
             for (let e of enemies) {
-                if (Math.hypot((e.x+50)-p.x, (e.y+50)-p.y) < 40) {
-                    e.takeDamage(p.dmg); spawnParticles(p.x, p.y, 3, p.color); projectiles.splice(i, 1); break;
+                if (Math.hypot((e.x+50)-p.x, (e.y+50)-p.y) < (40 + e.radius - 35)) {
+                    e.takeDamage(p.dmg, p.isCrit); 
+                    spawnParticles(p.x, p.y, 3, p.color); projectiles.splice(i, 1); break;
                 }
             }
         });
