@@ -1,1 +1,666 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Chess Defense: Mobile Optimized</title>
+    <style>
+        /* 모바일 기본 설정 */
+        body {
+            background-color: #121212;
+            color: white;
+            font-family: 'Segoe UI', sans-serif;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            touch-action: none;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            user-select: none;
+        }
 
+        /* 상단 HUD */
+        #top-hud {
+            height: 50px;
+            background: #1e1e1e;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 15px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+            z-index: 10;
+        }
+
+        .hud-item {
+            font-size: 16px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .energy-count { color: #ffd700; font-size: 20px; }
+        .wave-text { color: #00e5ff; font-size: 16px; margin-left: 5px; text-shadow: 0 0 5px #00e5ff;}
+        .progress-bar-bg { width: 80px; height: 8px; background: #333; border-radius: 4px; overflow: hidden; margin-left: 10px; }
+        .progress-bar-fill { height: 100%; background: #ff4444; width: 0%; transition: width 0.3s; }
+
+        /* 게임 캔버스 영역 */
+        #game-container {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: #2a2a2a;
+            position: relative;
+            overflow: hidden;
+            width: 100%;
+        }
+
+        canvas {
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            max-width: 100%;
+            max-height: 100%;
+            /* 캔버스 비율 유지 */
+            aspect-ratio: 900/500;
+        }
+
+        /* 🃏 카드 선택 오버레이 (모바일 반응형) */
+        #card-selection {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 60;
+        }
+        
+        #card-selection h2 { color: #ffd700; margin-bottom: 15px; font-size: 6vw; text-shadow: 0 0 10px #ffd700; }
+        #card-selection p { font-size: 3.5vw; color: #ccc; margin-bottom: 15px; }
+
+        .cards-container {
+            display: flex;
+            justify-content: center;
+            gap: 2%;
+            width: 95%;
+            height: 60%; /* 화면 높이의 60% 사용 */
+        }
+
+        .card {
+            background: linear-gradient(145deg, #2a2a2a, #333);
+            border: 2px solid #555;
+            border-radius: 12px;
+            width: 31%; /* 3개 균등 분할 */
+            height: 100%;
+            padding: 10px 5px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            cursor: pointer;
+            transition: transform 0.2s, border-color 0.2s;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+            box-sizing: border-box;
+        }
+
+        .card:active { transform: scale(0.95); border-color: #ffd700; background: #3a3a3a; }
+        
+        /* 카드 내부 폰트 반응형 (vw 단위 사용) */
+        .card-icon { font-size: 8vw; margin-bottom: 5px; margin-top: 10px;}
+        .card-title { font-weight: bold; color: #fff; margin-bottom: 5px; font-size: 3.5vw; white-space: nowrap;}
+        .card-desc { font-size: 2.8vw; color: #ccc; line-height: 1.3; padding: 0 5px; word-break: keep-all; flex: 1; display: flex; align-items: center; justify-content: center;}
+        .card-rare { color: #ffd700; font-size: 2.5vw; margin-top: 5px; margin-bottom: 10px; border: 1px solid #ffd700; padding: 2px 8px; border-radius: 10px;}
+
+        /* PC/태블릿 등 큰 화면일 때 폰트 크기 제한 */
+        @media (min-width: 600px) {
+            #card-selection h2 { font-size: 30px; }
+            #card-selection p { font-size: 16px; }
+            .card-icon { font-size: 50px; }
+            .card-title { font-size: 18px; }
+            .card-desc { font-size: 14px; }
+            .card-rare { font-size: 12px; }
+            .cards-container { width: 80%; height: 50%; gap: 20px;}
+            .card { width: 160px; height: 240px; }
+        }
+
+
+        /* 업그레이드 및 판매 패널 */
+        #upgrade-panel {
+            position: absolute;
+            bottom: 20px; left: 50%; transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.95);
+            border: 2px solid #ffd700; border-radius: 15px;
+            padding: 15px;
+            display: none;
+            flex-direction: column; align-items: center;
+            z-index: 50; width: 60%; max-width: 300px;
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.3);
+        }
+        .action-btn { padding: 12px; border:none; border-radius:8px; width:100%; margin-top:8px; font-weight:bold; cursor:pointer; font-size: 14px;}
+        .btn-upgrade { background:#ffd700; color:#000; }
+        .btn-sell { background: #e74c3c; color: white; }
+        .btn-close { background:#444; color:#fff; }
+
+        /* 하단 유닛 선택 바 */
+        #bottom-bar {
+            height: 90px;
+            background: #1e1e1e;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            padding: 5px;
+            border-top: 2px solid #333;
+            z-index: 10;
+        }
+
+        .unit-btn {
+            background: #333;
+            border: 2px solid #444;
+            border-radius: 8px;
+            width: 18%;
+            height: 90%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            position: relative;
+        }
+        .unit-btn.selected { border-color: #ffd700; background: #4a4a3a; }
+        .unit-btn.disabled { opacity: 0.4; filter: grayscale(100%); }
+        .unit-cost { font-size: 12px; color: #ffd700; font-weight: bold; }
+
+        /* 오버레이 */
+        #overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85); display: flex; flex-direction: column;
+            justify-content: center; align-items: center; z-index: 100;
+        }
+        .big-btn { padding: 15px 40px; font-size: 24px; background: #ffd700; border: none; border-radius: 30px; font-weight: bold; cursor: pointer; }
+
+    </style>
+</head>
+<body>
+
+    <div id="top-hud">
+        <div class="hud-item">
+            <span>⚡</span><span class="energy-count" id="ui-energy">150</span>
+        </div>
+        <div class="hud-item">
+            <span class="wave-text" id="ui-wave">Wave 1</span>
+            <div class="progress-bar-bg">
+                <div class="progress-bar-fill" id="wave-progress"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="game-container">
+        <canvas id="gameCanvas"></canvas>
+        
+        <!-- 카드 선택 UI -->
+        <div id="card-selection">
+            <h2>🎉 Wave Clear!</h2>
+            <p>보상을 선택하세요</p>
+            <div class="cards-container" id="cards-box"></div>
+        </div>
+
+        <!-- 유닛 개별 업그레이드 UI -->
+        <div id="upgrade-panel">
+            <div id="upgrade-info" style="font-weight:bold; font-size:18px; color:#ffd700; margin-bottom:5px;">Lv.1 폰</div>
+            <div id="upgrade-stats" style="color:#ccc; font-size:12px; margin-bottom:5px;">스탯 정보</div>
+            <button class="action-btn btn-upgrade" id="btn-do-upgrade" onclick="upgradeSelectedUnit()">강화</button>
+            <button class="action-btn btn-sell" id="btn-do-sell" onclick="sellSelectedUnit()">판매</button>
+            <button class="action-btn btn-close" onclick="closeUpgradePanel()">닫기</button>
+        </div>
+
+        <!-- 시작 화면 -->
+        <div id="overlay">
+            <h1 style="color:#ffd700; margin-bottom:10px; font-size:32px;">🃏 Chess Defense</h1>
+            <p style="color:#ccc; text-align:center; margin-bottom:30px; line-height:1.5;">
+                폰 강화비용 30G!<br>전략적으로 막아내세요.
+            </p>
+            <button class="big-btn" onclick="startGame()">게임 시작</button>
+        </div>
+    </div>
+
+    <div id="bottom-bar">
+        <div class="unit-btn" id="btn-king" onclick="selectUnitType('king')">
+            <div class="unit-icon" style="font-size:26px">♚</div>
+            <div class="unit-cost">80</div>
+            <div style="font-size:10px; color:#ccc">킹 (자원)</div>
+        </div>
+        <div class="unit-btn" id="btn-pawn" onclick="selectUnitType('pawn')">
+            <div class="unit-icon" style="font-size:26px">♟️</div>
+            <div class="unit-cost">50</div>
+            <div style="font-size:10px; color:#ccc">폰 (방패)</div>
+        </div>
+        <div class="unit-btn" id="btn-rook" onclick="selectUnitType('rook')">
+            <div class="unit-icon" style="font-size:26px">♜</div>
+            <div class="unit-cost">100</div>
+            <div style="font-size:10px; color:#ccc">룩 (직선)</div>
+        </div>
+        <div class="unit-btn" id="btn-bishop" onclick="selectUnitType('bishop')">
+            <div class="unit-icon" style="font-size:26px">♝</div>
+            <div class="unit-cost">120</div>
+            <div style="font-size:10px; color:#ccc">비숍 (대각)</div>
+        </div>
+        <div class="unit-btn" id="btn-knight" onclick="selectUnitType('knight')">
+            <div class="unit-icon" style="font-size:26px">♞</div>
+            <div class="unit-cost">150</div>
+            <div style="font-size:10px; color:#ccc">나이트 (범위)</div>
+        </div>
+    </div>
+
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // 게임 설정
+    const GAME_WIDTH = 900;
+    const GAME_HEIGHT = 500;
+    canvas.width = GAME_WIDTH;
+    canvas.height = GAME_HEIGHT;
+
+    const CELL_SIZE = 100;
+    const COLS = 9;
+    const ROWS = 5;
+
+    // 변수
+    let isPlaying = false;
+    let isPaused = false;
+    let energy = 150;
+    let frame = 0;
+    
+    // 웨이브
+    let wave = 1;
+    let enemiesToSpawn = 0;
+    let enemiesSpawned = 0;
+    let enemiesKilled = 0;
+    let waveTotalEnemies = 0;
+
+    let globalBuffs = { dmgMult: 1.0, spdMult: 1.0, costMult: 1.0, hpMult: 1.0, kingGold: 0 };
+
+    let selectedType = null;
+    let focusedUnit = null;
+
+    let defenders = [];
+    let enemies = [];
+    let projectiles = [];
+    let particles = [];
+    let floatingTexts = [];
+
+    // 유닛 데이터
+    const UNITS = {
+        'king':   { cost: 80,  hp: 200, dmg: 10,  spd: 120, upCost: 100, color: '#ffd700', icon: '♚', name: '킹' },
+        // 🔥 폰 강화비용 30으로 수정
+        'pawn':   { cost: 50,  hp: 400, dmg: 10,  spd: 60,  upCost: 30,  color: '#aaa',    icon: '♟️', name: '폰' },
+        'rook':   { cost: 100, hp: 200, dmg: 30,  spd: 50,  upCost: 120, color: '#4a90e2', icon: '♜', name: '룩' },
+        'bishop': { cost: 120, hp: 150, dmg: 40,  spd: 60,  upCost: 150, color: '#9013fe', icon: '♝', name: '비숍' },
+        'knight': { cost: 150, hp: 300, dmg: 75,  spd: 40,  upCost: 200, color: '#7ed321', icon: '♞', name: '나이트' }
+    };
+
+    const CARD_POOL = [
+        { id: 'atk_up',   icon: '⚔️', title: '전군 돌격', desc: '아군 공격력 +20%' },
+        { id: 'spd_up',   icon: '⚡', title: '광속 모드', desc: '아군 공속 +15%' },
+        { id: 'hp_up',    icon: '🛡️', title: '강철 갑옷', desc: '아군 체력 +25%' },
+        { id: 'cost_dn',  icon: '💰', title: '자원 절약', desc: '배치 비용 -10%' },
+        { id: 'king_up',  icon: '👑', title: '왕의 세금', desc: '킹 자원생산 +5' },
+        { id: 'rich',     icon: '💎', title: '보급품',    desc: '즉시 자원 +200' }
+    ];
+
+    /**
+     * 🕹️ 게임 로직
+     */
+    function startGame() {
+        document.getElementById('overlay').style.display = 'none';
+        initGame();
+        startWave(1);
+        animate();
+    }
+
+    function initGame() {
+        defenders = []; enemies = []; projectiles = []; particles = []; floatingTexts = [];
+        energy = 150; frame = 0; isPlaying = true; isPaused = false;
+        globalBuffs = { dmgMult: 1.0, spdMult: 1.0, costMult: 1.0, hpMult: 1.0, kingGold: 0 };
+        closeUpgradePanel();
+    }
+
+    function startWave(waveNum) {
+        wave = waveNum; enemiesSpawned = 0; enemiesKilled = 0;
+        waveTotalEnemies = 5 + Math.floor(wave * 2.5); 
+        enemiesToSpawn = waveTotalEnemies;
+        spawnFloatingText(`Wave ${wave} Start!`, GAME_WIDTH/2, GAME_HEIGHT/2, '#00e5ff');
+        updateUI();
+    }
+
+    function checkWaveClear() {
+        if (enemiesKilled >= waveTotalEnemies) showCardSelection();
+    }
+
+    function showCardSelection() {
+        isPaused = true;
+        const cardBox = document.getElementById('cards-box');
+        cardBox.innerHTML = ''; 
+        const shuffled = [...CARD_POOL].sort(() => 0.5 - Math.random());
+        const picks = shuffled.slice(0, 3);
+
+        picks.forEach(card => {
+            const el = document.createElement('div');
+            el.className = 'card';
+            el.innerHTML = `
+                <div class="card-icon">${card.icon}</div>
+                <div class="card-title">${card.title}</div>
+                <div class="card-desc">${card.desc}</div>
+                <div class="card-rare">선택</div>
+            `;
+            el.onclick = () => selectCard(card.id);
+            cardBox.appendChild(el);
+        });
+        document.getElementById('card-selection').style.display = 'flex';
+    }
+
+    function selectCard(cardId) {
+        switch(cardId) {
+            case 'atk_up': globalBuffs.dmgMult += 0.2; break;
+            case 'spd_up': globalBuffs.spdMult += 0.15; break;
+            case 'hp_up':  globalBuffs.hpMult += 0.25; break;
+            case 'cost_dn': globalBuffs.costMult *= 0.9; break;
+            case 'king_up': globalBuffs.kingGold += 5; break;
+            case 'rich': energy += 200; break;
+        }
+        defenders.forEach(d => d.applyBuffs());
+        document.getElementById('card-selection').style.display = 'none';
+        isPaused = false;
+        startWave(wave + 1);
+    }
+
+    /**
+     * 👆 입력 및 UI
+     */
+    function updateUI() {
+        document.getElementById('ui-energy').innerText = Math.floor(energy);
+        document.getElementById('ui-wave').innerText = `Wave ${wave}`;
+        const progress = Math.min(100, (enemiesKilled / waveTotalEnemies) * 100);
+        document.getElementById('wave-progress').style.width = `${progress}%`;
+
+        ['king', 'pawn', 'rook', 'bishop', 'knight'].forEach(t => {
+            const btn = document.getElementById(`btn-${t}`);
+            const realCost = Math.floor(UNITS[t].cost * globalBuffs.costMult);
+            btn.querySelector('.unit-cost').innerText = realCost;
+            if (selectedType === t) btn.classList.add('selected'); else btn.classList.remove('selected');
+            if (energy < realCost) btn.classList.add('disabled'); else btn.classList.remove('disabled');
+        });
+    }
+
+    window.selectUnitType = function(type) {
+        if (!isPlaying || isPaused) return;
+        if (selectedType === type) selectedType = null;
+        else selectedType = type;
+        closeUpgradePanel();
+        updateUI();
+    };
+
+    function handleInput(cx, cy) {
+        if (!isPlaying || isPaused) return;
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        const x = (cx - rect.left) * scaleX;
+        const y = (cy - rect.top) * scaleY;
+        const gx = Math.floor(x / CELL_SIZE) * CELL_SIZE;
+        const gy = Math.floor(y / CELL_SIZE) * CELL_SIZE;
+
+        if (gx >= GAME_WIDTH - CELL_SIZE || gx < 0 || gy < 0 || gy >= GAME_HEIGHT) {
+            selectedType = null; closeUpgradePanel(); updateUI(); return;
+        }
+
+        const clickedUnit = defenders.find(d => d.x === gx && d.y === gy);
+
+        if (clickedUnit) {
+            openUpgradePanel(clickedUnit);
+            selectedType = null;
+        } else if (selectedType) {
+            const baseCost = UNITS[selectedType].cost;
+            const finalCost = Math.floor(baseCost * globalBuffs.costMult);
+            if (energy >= finalCost) {
+                defenders.push(new Defender(gx, gy, selectedType));
+                energy -= finalCost;
+                spawnParticles(gx+50, gy+50, 10, '#ffd700');
+                selectedType = null; updateUI();
+            }
+        } else {
+            closeUpgradePanel();
+        }
+    }
+
+    // --- 💰 업그레이드 & 판매 로직 ---
+    function openUpgradePanel(unit) {
+        focusedUnit = unit;
+        const panel = document.getElementById('upgrade-panel');
+        const nextCost = unit.getUpgradeCost();
+        
+        const baseCost = UNITS[unit.type].cost;
+        const invest = baseCost + ((unit.level - 1) * UNITS[unit.type].upCost);
+        const sellPrice = Math.floor(invest / 2);
+
+        document.getElementById('upgrade-info').innerText = `Lv.${unit.level} ${UNITS[unit.type].name}`;
+        let statText = (unit.type === 'king') ? `생산량 +5` : `공격력 +30%`;
+        document.getElementById('upgrade-stats').innerText = statText;
+        
+        const btnUp = document.getElementById('btn-do-upgrade');
+        btnUp.innerText = `강화 (${nextCost}G)`;
+        btnUp.style.opacity = (energy < nextCost) ? 0.5 : 1.0;
+
+        const btnSell = document.getElementById('btn-do-sell');
+        btnSell.innerText = `판매 (+${sellPrice}G)`;
+
+        panel.style.display = 'flex';
+    }
+
+    window.closeUpgradePanel = () => { document.getElementById('upgrade-panel').style.display = 'none'; focusedUnit = null; };
+    
+    window.upgradeSelectedUnit = () => {
+        if (!focusedUnit) return;
+        const cost = focusedUnit.getUpgradeCost();
+        if (energy >= cost) {
+            energy -= cost;
+            focusedUnit.levelUp();
+            spawnParticles(focusedUnit.x+50, focusedUnit.y+50, 20, '#fff');
+            spawnFloatingText("LEVEL UP!", focusedUnit.x+50, focusedUnit.y);
+            openUpgradePanel(focusedUnit); updateUI();
+        }
+    };
+
+    window.sellSelectedUnit = () => {
+        if (!focusedUnit) return;
+        const baseCost = UNITS[focusedUnit.type].cost;
+        const invest = baseCost + ((focusedUnit.level - 1) * UNITS[focusedUnit.type].upCost);
+        const sellPrice = Math.floor(invest / 2);
+
+        energy += sellPrice;
+        spawnFloatingText(`+${sellPrice} G`, focusedUnit.x+50, focusedUnit.y, '#ffd700');
+        spawnParticles(focusedUnit.x+50, focusedUnit.y+50, 15, '#888');
+
+        defenders = defenders.filter(d => d !== focusedUnit);
+        closeUpgradePanel();
+        updateUI();
+    };
+
+    canvas.addEventListener('mousedown', e => handleInput(e.clientX, e.clientY));
+    canvas.addEventListener('touchstart', e => { e.preventDefault(); handleInput(e.touches[0].clientX, e.touches[0].clientY); }, { passive: false });
+
+    /**
+     * 🏗️ 클래스 정의
+     */
+    class Defender {
+        constructor(x, y, type) {
+            this.x = x; this.y = y; this.type = type;
+            this.level = 1; this.baseStats = UNITS[type];
+            this.color = this.baseStats.color; this.icon = this.baseStats.icon;
+            this.timer = 0; this.applyBuffs(); this.hp = this.maxHp;
+        }
+
+        applyBuffs() {
+            const lvlMult = Math.pow(1.2, this.level - 1);
+            this.maxHp = Math.floor(this.baseStats.hp * lvlMult * globalBuffs.hpMult);
+            
+            if (this.type === 'king') {
+                this.damage = Math.floor(this.baseStats.dmg + ((this.level-1)*5) + globalBuffs.kingGold);
+            } else {
+                this.damage = Math.floor(this.baseStats.dmg * Math.pow(1.3, this.level - 1) * globalBuffs.dmgMult);
+            }
+            this.cd = Math.max(10, Math.floor(this.baseStats.spd / globalBuffs.spdMult));
+            this.hp = Math.min(this.hp, this.maxHp);
+        }
+
+        getUpgradeCost() { return Math.floor(this.baseStats.upCost * this.level); }
+        levelUp() { this.level++; this.applyBuffs(); this.hp = this.maxHp; }
+
+        update() {
+            this.timer++; if (this.timer % this.cd === 0) this.act();
+        }
+
+        act() {
+            const cx = this.x + 50, cy = this.y + 50;
+            if (this.type === 'king') {
+                energy += this.damage; spawnFloatingText(`+${this.damage}`, cx, this.y, '#ffd700'); updateUI(); return;
+            }
+            if (this.type === 'knight') { 
+                 let hit = false;
+                 enemies.forEach(e => {
+                    if (Math.hypot((e.x+50)-cx, (e.y+50)-cy) < 330) {
+                        e.takeDamage(this.damage);
+                        spawnParticles(e.x+50, e.y+50, 2, '#fff');
+                        hit = true;
+                    }
+                });
+                if(hit) this.effect = true;
+            } else if (this.type === 'bishop') {
+                 projectiles.push(new Projectile(cx, cy, this.damage, -0.6, this.color));
+                 projectiles.push(new Projectile(cx, cy, this.damage, 0.6, this.color));
+            } else { 
+                let range = (this.type === 'pawn') ? 180 : 900;
+                if (enemies.some(e => e.y === this.y && e.x > this.x && e.x < this.x + range)) {
+                    projectiles.push(new Projectile(cx, cy, this.damage, 0, this.color));
+                }
+            }
+        }
+
+        draw() {
+            ctx.fillStyle = '#333'; ctx.fillRect(this.x+5, this.y+5, 90, 90);
+            ctx.fillStyle = this.color; ctx.font = '50px Arial'; ctx.textAlign = 'center'; ctx.fillText(this.icon, this.x+50, this.y+65);
+            let stars = "⭐".repeat(Math.min(3, this.level)); if (this.level > 3) stars = `⭐Lv.${this.level}`;
+            ctx.font = '12px Arial'; ctx.fillStyle = '#fff'; ctx.fillText(stars, this.x+50, this.y+20);
+            const pct = this.hp/this.maxHp;
+            ctx.fillStyle = '#000'; ctx.fillRect(this.x+10, this.y+80, 80, 6);
+            ctx.fillStyle = pct > 0.3 ? '#2ecc71' : '#e74c3c'; ctx.fillRect(this.x+10, this.y+80, 80*pct, 6);
+            if(this.effect) {
+                ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(this.x+50, this.y+50, 150, 0, Math.PI*2); ctx.stroke();
+                this.effect = false;
+            }
+        }
+    }
+
+    class Enemy {
+        constructor() {
+            this.y = Math.floor(Math.random() * ROWS) * CELL_SIZE;
+            this.x = GAME_WIDTH;
+            this.hp = 80 + (wave * 30); this.maxHp = this.hp;
+            this.speed = Math.random() * 0.4 + 0.4 + (wave * 0.05); this.moveSpeed = this.speed;
+        }
+        update() {
+            this.moveSpeed = this.speed;
+            for (let d of defenders) {
+                if (d.y === this.y && this.x < d.x + 80 && this.x > d.x) {
+                    this.moveSpeed = 0; d.hp -= 0.5;
+                    if (d.hp <= 0) { defenders = defenders.filter(u => u !== d); closeUpgradePanel(); }
+                }
+            }
+            this.x -= this.moveSpeed;
+        }
+        takeDamage(amount) { this.hp -= amount; spawnFloatingText(amount, this.x+50, this.y, '#ff4444'); }
+        draw() {
+            ctx.fillStyle = '#e74c3c'; ctx.beginPath(); ctx.arc(this.x+50, this.y+50, 35, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(this.x+35, this.y+45, 8, 0, Math.PI*2); ctx.arc(this.x+65, this.y+45, 8, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = '#000'; ctx.fillRect(this.x+20, this.y-10, 60, 5);
+            ctx.fillStyle = '#e74c3c'; ctx.fillRect(this.x+20, this.y-10, 60*(this.hp/this.maxHp), 5);
+        }
+    }
+
+    class Projectile {
+        constructor(x, y, dmg, dy, color) { this.x = x; this.y = y; this.dmg = dmg; this.dy = dy; this.color = color; this.speed = 10; }
+        update() { this.x += this.speed; this.y += this.dy * this.speed; }
+        draw() { ctx.fillStyle = this.color; ctx.beginPath(); ctx.arc(this.x, this.y, 8, 0, Math.PI*2); ctx.fill(); }
+    }
+
+    class FloatingText {
+        constructor(text, x, y, color='#fff') { this.text = text; this.x = x; this.y = y; this.color = color; this.life = 1.0; this.dy = -1; }
+        update() { this.y += this.dy; this.life -= 0.03; }
+        draw() { ctx.globalAlpha = Math.max(0, this.life); ctx.fillStyle = this.color; ctx.font = 'bold 18px Arial'; ctx.textAlign='center'; ctx.fillText(this.text, this.x, this.y); ctx.globalAlpha = 1.0; }
+    }
+    function spawnFloatingText(text, x, y, color) { floatingTexts.push(new FloatingText(text, x, y, color)); }
+
+    class Particle {
+        constructor(x, y, color) { this.x = x; this.y = y; this.color = color; this.vx = (Math.random()-0.5)*5; this.vy = (Math.random()-0.5)*5; this.life = 1.0; }
+        update() { this.x += this.vx; this.y += this.vy; this.life -= 0.05; }
+        draw() { ctx.globalAlpha = Math.max(0, this.life); ctx.fillStyle = this.color; ctx.beginPath(); ctx.arc(this.x, this.y, 3, 0, Math.PI*2); ctx.fill(); ctx.globalAlpha = 1.0; }
+    }
+    function spawnParticles(x, y, c, color) { for(let i=0; i<c; i++) particles.push(new Particle(x, y, color)); }
+
+    function animate() {
+        if (!isPlaying) return;
+        requestAnimationFrame(animate);
+        if (isPaused) return;
+
+        ctx.clearRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+        for (let r=0; r<ROWS; r++) {
+            for (let c=0; c<COLS; c++) {
+                ctx.fillStyle = (r+c)%2===0 ? '#222' : '#2a2a2a'; ctx.fillRect(c*CELL_SIZE, r*CELL_SIZE, CELL_SIZE, CELL_SIZE);
+            }
+        }
+        if (selectedType) { ctx.strokeStyle = '#ffd700'; ctx.lineWidth = 3; ctx.strokeRect(0, 0, GAME_WIDTH-CELL_SIZE, GAME_HEIGHT); }
+        if (focusedUnit) { ctx.strokeStyle = '#fff'; ctx.lineWidth = 4; ctx.strokeRect(focusedUnit.x, focusedUnit.y, CELL_SIZE, CELL_SIZE); }
+
+        if (enemiesSpawned < enemiesToSpawn) {
+            let spawnRate = Math.max(60, 300 - (wave * 30)); 
+            if (frame % spawnRate === 0) { enemies.push(new Enemy()); enemiesSpawned++; }
+        }
+
+        defenders.forEach(d => d.update());
+        // 정렬: Y좌표가 더 큰(아래에 있는) 유닛을 나중에 그림 -> 가려짐 해결
+        defenders.sort((a,b) => a.y - b.y);
+        defenders.forEach(d => d.draw());
+
+        enemies.forEach((e, i) => {
+            e.update(); e.draw();
+            if (e.x < 0) {
+                isPlaying = false;
+                document.querySelector('#overlay h1').innerText = "GAME OVER";
+                document.querySelector('#overlay p').innerText = `최종 웨이브: ${wave}\n점수: ${energy}`;
+                document.getElementById('overlay').style.display = 'flex';
+            }
+            if (e.hp <= 0) {
+                enemies.splice(i, 1); energy += 10; enemiesKilled++; updateUI();
+                spawnParticles(e.x+50, e.y+50, 10, '#e74c3c');
+                checkWaveClear();
+            }
+        });
+        projectiles.forEach((p, i) => {
+            p.update(); p.draw();
+            if (p.x > GAME_WIDTH || p.y < 0 || p.y > GAME_HEIGHT) { projectiles.splice(i, 1); return; }
+            for (let e of enemies) {
+                if (Math.hypot((e.x+50)-p.x, (e.y+50)-p.y) < 40) {
+                    e.takeDamage(p.dmg); spawnParticles(p.x, p.y, 3, p.color); projectiles.splice(i, 1); break;
+                }
+            }
+        });
+        particles.forEach((p, i) => { p.update(); p.draw(); if (p.life <= 0) particles.splice(i, 1); });
+        floatingTexts.forEach((t, i) => { t.update(); t.draw(); if (t.life <= 0) floatingTexts.splice(i, 1); });
+
+        frame++;
+    }
+</script>
+</body>
+</html>
