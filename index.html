@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Chess Defense: Ranking</title>
+    <title>Chess Defense: Ranking Fix</title>
     <style>
         /* 모바일 기본 설정 */
         body {
@@ -190,31 +190,51 @@
         .rank-stat { font-size: 18px; color: #ccc; margin: 5px 0; }
         .rank-val { color: #ffd700; font-weight: bold; font-size: 22px; }
 
+        /* 1등 이름 입력 폼 */
+        #new-record-form {
+            display: none; /* 평소엔 숨김 */
+            margin-top: 15px;
+            text-align: center;
+            animation: popIn 0.5s ease;
+        }
+        @keyframes popIn { from {transform: scale(0.5); opacity: 0;} to {transform: scale(1); opacity: 1;} }
+        
+        #player-name-input {
+            padding: 10px; font-size: 16px; border-radius: 5px; border: none; width: 70%; margin-bottom: 10px;
+        }
+        .submit-btn {
+            background: #00e5ff; color: #000; padding: 10px 20px; border: none; border-radius: 5px; font-weight: bold; cursor: pointer;
+        }
+
     </style>
     
     <!-- Firebase SDK -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, getDocs, serverTimestamp, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, getDocs, serverTimestamp, updateDoc, doc, limit, query, orderBy } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
+        // 🔥 오류 수정: 환경 설정 변수 사용 (보안 규칙 문제 해결)
         const firebaseConfig = JSON.parse(__firebase_config);
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
-        // 인증 상태를 기다리기 위한 프로미스
-        let authReady = new Promise((resolve) => {
+        let currentUser = null;
+
+        // 인증 대기용 Promise
+        const authReady = new Promise((resolve) => {
             const unsubscribe = onAuthStateChanged(auth, (user) => {
                 if (user) {
+                    currentUser = user;
                     resolve(user);
                     unsubscribe();
                 }
             });
         });
 
-        // 초기 로그인 시도
+        // 초기 로그인 (커스텀 토큰 우선, 없으면 익명)
         const initAuth = async () => {
             try {
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
@@ -223,52 +243,64 @@
                     await signInAnonymously(auth);
                 }
             } catch (e) {
-                console.error("Auth init failed", e);
+                console.error("Auth Failed:", e);
             }
         };
         initAuth();
 
-        // 점수 저장 및 랭킹 조회 함수
-        window.submitScoreAndGetRank = async (finalScore) => {
+        // 전역 함수로 등록
+        window.saveScoreAndCheckRank = async (finalScore) => {
             try {
-                // 1. 로그인이 될 때까지 기다림
-                const user = await authReady;
-                if (!user) return { rank: '로그인 실패', top: '-' };
+                // 로그인 완료 대기
+                await authReady;
+                if (!auth.currentUser) return { rank: '로그인 필요', topScore: '-', topName: '-', isNewRecord: false };
 
-                const col = collection(db, 'artifacts', appId, 'public', 'data', 'scores');
-                
-                // 2. 내 점수 저장
-                await addDoc(col, {
+                // 🌟 중요: 이 경로(`artifacts/...`)를 써야 권한 오류가 안 납니다.
+                const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'scores');
+
+                // 1. 내 점수 저장
+                const docRef = await addDoc(colRef, {
                     score: finalScore,
-                    ts: serverTimestamp(), // 서버 시간
-                    uid: user.uid
+                    name: "Unknown",
+                    ts: serverTimestamp(),
+                    uid: auth.currentUser.uid
                 });
 
-                // 3. 전체 점수 가져오기
-                // (Firestore 규칙상 복합 쿼리 제한이 있을 수 있으므로 모든 문서를 가져와서 JS로 정렬)
-                const snapshot = await getDocs(col);
+                // 2. 전체 점수 가져와서 랭킹 산정
+                const snapshot = await getDocs(colRef);
                 let scores = [];
+                snapshot.forEach(d => scores.push({ ...d.data(), id: d.id }));
                 
-                snapshot.forEach(doc => {
-                    const data = doc.data();
-                    if (typeof data.score === 'number') {
-                        scores.push(data.score);
-                    }
-                });
+                // 점수 내림차순 정렬
+                scores.sort((a, b) => b.score - a.score);
 
-                // 4. 점수 내림차순 정렬
-                scores.sort((a, b) => b - a);
+                const myRank = scores.findIndex(s => s.id === docRef.id) + 1;
+                const topPlayer = scores[0];
 
-                // 5. 등수 계산 (같은 점수면 공동 등수)
-                // 내 점수와 같은 첫 번째 인덱스 + 1
-                const rank = scores.indexOf(finalScore) + 1;
-                const top = scores.length > 0 ? scores[0] : finalScore;
+                return {
+                    rank: myRank,
+                    topScore: topPlayer ? topPlayer.score : finalScore,
+                    topName: topPlayer ? topPlayer.name : "Unknown",
+                    isNewRecord: (myRank === 1),
+                    docId: docRef.id
+                };
 
-                return { rank: rank, top: top };
+            } catch (e) {
+                console.error("Ranking System Error:", e);
+                return { rank: '오류', topScore: '-', topName: '-', isNewRecord: false };
+            }
+        };
 
+        window.updatePlayerName = async (docId, newName) => {
+            if (!db || !docId) return;
+            try {
+                // 경로 수정됨
+                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'scores', docId);
+                await updateDoc(docRef, { name: newName });
+                return true;
             } catch(e) {
-                console.error("Ranking Error:", e);
-                return { rank: '통신 오류', top: '-' };
+                console.error("Name Update Error:", e);
+                return false;
             }
         };
     </script>
@@ -311,18 +343,31 @@
         <div id="overlay">
             <h1 style="color:#ffd700; margin-bottom:10px; font-size:32px;">🃏 Chess Defense</h1>
             <p id="overlay-msg" style="color:#ccc; text-align:center; margin-bottom:20px; line-height:1.5;">
-                랭킹 시스템 도입!<br>
-                당신의 점수는 기록됩니다.
+                전체 1등에 도전하세요!<br>
+                1등은 이름을 남길 수 있습니다.
             </p>
             
-            <!-- 랭킹 표시 영역 (게임 오버 시 표시) -->
+            <!-- 랭킹 표시 영역 -->
             <div id="rank-info" style="display:none;">
                 <div class="rank-stat">내 점수</div>
                 <div class="rank-val" id="res-score">0</div>
                 <hr style="border-color:#444; margin:10px 0;">
                 <div class="rank-stat">내 순위</div>
                 <div class="rank-val" id="res-rank" style="color:#00e5ff;">계산 중...</div>
-                <div class="rank-stat" style="font-size:14px; margin-top:10px;">🏆 전체 1등: <span id="res-top" style="color:#fff;">-</span></div>
+                
+                <!-- 1등 정보 -->
+                <div class="rank-stat" style="font-size:14px; margin-top:15px; color:#aaa;">
+                    👑 Current Champion 👑<br>
+                    <span id="res-top-name" style="color:#ffd700; font-weight:bold;">Unknown</span> : 
+                    <span id="res-top-score" style="color:#fff;">0</span>
+                </div>
+
+                <!-- 1등 달성 시 이름 입력 폼 -->
+                <div id="new-record-form">
+                    <h3 style="color:#ffd700; margin:10px 0;">🎉 축하합니다! 1등입니다! 🎉</h3>
+                    <input type="text" id="player-name-input" placeholder="이름을 입력하세요 (최대 8자)" maxlength="8">
+                    <button class="submit-btn" onclick="submitName()">기록 남기기</button>
+                </div>
             </div>
 
             <button class="big-btn" id="start-btn" onclick="startGame()">게임 시작</button>
@@ -378,7 +423,7 @@
     let isPlaying = false;
     let isPaused = false;
     let energy = 150;
-    let score = 0; // 🏆 누적 점수 변수 추가
+    let score = 0; 
     let frame = 0;
     
     let wave = 1;
@@ -400,6 +445,9 @@
     let projectiles = [];
     let particles = [];
     let floatingTexts = [];
+
+    // 랭킹 관련 변수
+    let currentDocId = null;
 
     const UNITS = {
         'king':   { cost: 100,  hp: 200, dmg: 1,   spd: 120, upCost: 100, color: '#ffd700', icon: '♚', name: '킹' },
@@ -434,7 +482,8 @@
 
     function startGame() {
         document.getElementById('overlay').style.display = 'none';
-        document.getElementById('rank-info').style.display = 'none'; // 랭킹 숨김
+        document.getElementById('rank-info').style.display = 'none'; 
+        document.getElementById('new-record-form').style.display = 'none';
         initGame();
         startWave(1);
         animate();
@@ -493,7 +542,7 @@
             case 'cost_dn': globalBuffs.costMult *= 0.9; break;
             case 'king_up': globalBuffs.kingGold += 5; break;
             case 'rich': 
-                energy += 200; score += 200; // 보너스 점수
+                energy += 200; score += 200; 
                 break;
             case 'heal_all': 
                 defenders.forEach(d => { d.hp = d.maxHp; spawnFloatingText("Heal!", d.x+50, d.y, '#00ff00'); }); 
@@ -625,6 +674,26 @@
     canvas.addEventListener('mousedown', e => handleInput(e.clientX, e.clientY));
     canvas.addEventListener('touchstart', e => { e.preventDefault(); handleInput(e.touches[0].clientX, e.touches[0].clientY); }, { passive: false });
 
+    // 이름 입력 처리
+    window.submitName = () => {
+        const nameInput = document.getElementById('player-name-input');
+        const name = nameInput.value.trim();
+        if (!name || name.length > 8) {
+            alert("이름을 1~8글자로 입력해주세요.");
+            return;
+        }
+        
+        if (currentDocId && window.updatePlayerName) {
+            window.updatePlayerName(currentDocId, name).then(() => {
+                document.getElementById('res-top-name').innerText = name;
+                document.getElementById('new-record-form').innerHTML = "<h4 style='color:#00e5ff'>이름이 등록되었습니다!</h4>";
+            });
+        }
+    };
+
+    /**
+     * 🏗️ 클래스 정의
+     */
     class Defender {
         constructor(x, y, type) {
             this.x = x; this.y = y; this.type = type;
@@ -662,7 +731,7 @@
             const cx = this.x + 50, cy = this.y + 50;
             if (this.type === 'king') {
                 energy += this.damage; 
-                score += this.damage; // 🏆 생산 점수
+                score += this.damage; 
                 spawnFloatingText(`+${this.damage}`, cx, this.y, '#ffd700'); updateUI(); return;
             }
             
@@ -792,7 +861,6 @@
             
             ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(this.x+35, this.y+45, 8, 0, Math.PI*2); ctx.arc(this.x+65, this.y+45, 8, 0, Math.PI*2); ctx.fill();
             
-            // 🔥 체력바 위치 보정: 맨 위 줄(y < 10)이면 발 밑에 표시, 아니면 머리 위에 표시
             let hpY = (this.y < 10) ? this.y + 85 : this.y - 15;
 
             ctx.fillStyle = '#000'; ctx.fillRect(this.x+20, hpY, 60, 5);
@@ -873,19 +941,28 @@
                 document.querySelector('#overlay h1').innerText = "GAME OVER";
                 document.querySelector('#overlay-msg').innerText = "점수를 저장하고 있습니다...";
                 document.getElementById('overlay').style.display = 'flex';
-                document.getElementById('start-btn').style.display = 'none'; // 로딩 중 버튼 숨김
+                document.getElementById('start-btn').style.display = 'none'; 
                 document.getElementById('rank-info').style.display = 'block';
+                document.getElementById('new-record-form').style.display = 'none'; // 폼 초기화
                 
                 document.getElementById('res-score').innerText = Math.floor(score);
 
                 // 🔥 랭킹 서버 전송 및 조회
-                if(window.submitScoreAndGetRank) {
-                    window.submitScoreAndGetRank(Math.floor(score)).then(res => {
+                if(window.saveScoreAndCheckRank) {
+                    window.saveScoreAndCheckRank(Math.floor(score)).then(res => {
                         document.getElementById('res-rank').innerText = `${res.rank}위`;
-                        document.getElementById('res-top').innerText = `${res.top}`;
+                        document.getElementById('res-top-score').innerText = res.topScore;
+                        document.getElementById('res-top-name').innerText = res.topName;
+                        
                         document.querySelector('#overlay-msg').innerText = "수고하셨습니다!";
                         document.getElementById('start-btn').innerText = "다시 하기";
                         document.getElementById('start-btn').style.display = 'block';
+
+                        // 1등이면 이름 입력 폼 표시
+                        currentDocId = res.docId; // 전역 변수에 저장
+                        if (res.isNewRecord) {
+                            document.getElementById('new-record-form').style.display = 'block';
+                        }
                     });
                 }
             }
@@ -893,7 +970,7 @@
                 enemies.splice(i, 1); 
                 let gain = 10 + globalBuffs.goldPerKill;
                 energy += gain; 
-                score += gain; // 🏆 킬 점수
+                score += gain; 
                 enemiesKilled++; updateUI();
                 spawnParticles(e.x+50, e.y+50, 10, '#e74c3c');
                 checkWaveClear();
