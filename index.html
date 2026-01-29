@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Chess Defense: My Ranking</title>
+    <title>Chess Defense: Bomber Update</title>
     <style>
         /* 모바일 기본 설정 */
         body {
@@ -231,12 +231,7 @@
             auth = getAuth(app);
             db = getFirestore(app);
             
-            // 로컬 실행을 위한 익명 로그인 자동 실행
-            signInAnonymously(auth).then(() => {
-                console.log("Firebase 로그인 성공!");
-            }).catch(e => {
-                console.error("Firebase Login Failed:", e);
-            });
+            signInAnonymously(auth).catch(e => console.error("Auth Fail:", e));
 
         } catch(e) {
             console.error("Firebase Init Error:", e);
@@ -258,14 +253,10 @@
             if (!db) return { rank: '설정 오류', topScore: '-', topName: '-', isNewRecord: false };
 
             try {
-                // 로그인 완료 대기 (최대 3초)
-                const timeoutPromise = new Promise(r => setTimeout(r, 3000));
-                await Promise.race([authReady, timeoutPromise]);
-                
-                // 로그인 안 됐으면 임시 ID 사용
-                const uid = auth.currentUser ? auth.currentUser.uid : 'guest_' + Math.random().toString(36).substr(2, 9);
+                // 로그인 완료 대기
+                await authReady;
+                const uid = auth.currentUser ? auth.currentUser.uid : 'guest';
 
-                // 🌟 'scores' 컬렉션 사용 (규칙 설정 필요!)
                 const colRef = collection(db, 'scores');
 
                 // 1. 내 점수 저장
@@ -281,7 +272,6 @@
                 let scores = [];
                 snapshot.forEach(d => scores.push({ ...d.data(), id: d.id }));
                 
-                // 점수 내림차순 정렬
                 scores.sort((a, b) => b.score - a.score);
 
                 const myRank = scores.findIndex(s => s.id === docRef.id) + 1;
@@ -297,9 +287,6 @@
 
             } catch (e) {
                 console.error("Ranking System Error:", e);
-                if(e.code === 'permission-denied') {
-                    alert("데이터베이스 권한 오류!\nFirebase Console -> Firestore Database -> 규칙(Rules) 탭에서\nallow read, write: if true; 로 설정해주세요.");
-                }
                 return { rank: 'Error', topScore: '-', topName: '-', isNewRecord: false };
             }
         };
@@ -355,8 +342,8 @@
         <div id="overlay">
             <h1 style="color:#ffd700; margin-bottom:10px; font-size:32px;">🃏 Chess Defense</h1>
             <p id="overlay-msg" style="color:#ccc; text-align:center; margin-bottom:20px; line-height:1.5;">
-                전체 1등에 도전하세요!<br>
-                1등은 이름을 남길 수 있습니다.
+                <span style="color:#ff6600">자폭병</span>이 추가되었습니다!<br>
+                적들은 갈수록 많아지고 강해집니다.
             </p>
             
             <!-- 랭킹 표시 영역 -->
@@ -367,14 +354,12 @@
                 <div class="rank-stat">내 순위</div>
                 <div class="rank-val" id="res-rank" style="color:#00e5ff;">계산 중...</div>
                 
-                <!-- 1등 정보 -->
                 <div class="rank-stat" style="font-size:14px; margin-top:15px; color:#aaa;">
                     👑 Current Champion 👑<br>
                     <span id="res-top-name" style="color:#ffd700; font-weight:bold;">Unknown</span> : 
                     <span id="res-top-score" style="color:#fff;">0</span>
                 </div>
 
-                <!-- 1등 달성 시 이름 입력 폼 -->
                 <div id="new-record-form">
                     <h3 style="color:#ffd700; margin:10px 0;">🎉 축하합니다! 1등입니다! 🎉</h3>
                     <input type="text" id="player-name-input" placeholder="이름을 입력하세요 (최대 8자)" maxlength="8">
@@ -409,12 +394,12 @@
         </div>
         <div class="unit-btn" id="btn-knight" onclick="selectUnitType('knight')">
             <div class="unit-icon" style="font-size:24px">♞</div>
-            <div class="unit-cost">200</div>
+            <div class="unit-cost">500</div>
             <div style="font-size:9px; color:#ccc">나이트(범위)</div>
         </div>
         <div class="unit-btn" id="btn-queen" onclick="selectUnitType('queen')">
             <div class="unit-icon" style="font-size:24px">♛</div>
-            <div class="unit-cost">500</div>
+            <div class="unit-cost">1500</div>
             <div style="font-size:9px; color:#ccc">퀸(멀티)</div>
         </div>
     </div>
@@ -458,16 +443,16 @@
     let particles = [];
     let floatingTexts = [];
 
-    // 랭킹 관련 변수
     let currentDocId = null;
 
     const UNITS = {
-        'king':   { cost: 100,  hp: 200, dmg: 1,   spd: 120, upCost: 100, color: '#ffd700', icon: '♚', name: '킹' },
+        'king':   { cost: 100,  hp: 200, dmg: 0.2, spd: 120, upCost: 100, color: '#ffd700', icon: '♚', name: '킹' },
         'pawn':   { cost: 50,  hp: 400, dmg: 10,  spd: 60,  upCost: 30,  color: '#aaa',    icon: '♟️', name: '폰' },
-        'rook':   { cost: 210, hp: 200, dmg: 30,  spd: 50,  upCost: 120, color: '#4a90e2', icon: '♜', name: '룩' },
+        // 🔥 룩 가격 210 -> 370
+        'rook':   { cost: 370, hp: 200, dmg: 30,  spd: 90,  upCost: 120, color: '#4a90e2', icon: '♜', name: '룩' },
         'bishop': { cost: 120, hp: 150, dmg: 40,  spd: 60,  upCost: 150, color: '#9013fe', icon: '♝', name: '비숍' },
-        'knight': { cost: 200, hp: 300, dmg: 37,  spd: 40,  upCost: 200, color: '#7ed321', icon: '♞', name: '나이트' },
-        'queen':  { cost: 500, hp: 500, dmg: 25,  spd: 45,  upCost: 300, color: '#ff00ff', icon: '♛', name: '퀸' }
+        'knight': { cost: 500, hp: 300, dmg: 18,  spd: 40,  upCost: 200, color: '#7ed321', icon: '♞', name: '나이트' },
+        'queen':  { cost: 1500, hp: 500, dmg: 25,  spd: 45,  upCost: 300, color: '#ff00ff', icon: '♛', name: '퀸' }
     };
 
     const CARD_POOL = [
@@ -475,7 +460,7 @@
         { id: 'spd_up',   icon: '⚡', title: '광속 모드', desc: '아군 공속 +15%' },
         { id: 'hp_up',    icon: '🛡️', title: '강철 갑옷', desc: '아군 체력 +25%' },
         { id: 'cost_dn',  icon: '💰', title: '자원 절약', desc: '배치 비용 -10%' },
-        { id: 'king_up',  icon: '👑', title: '왕의 세금', desc: '킹 자원생산 +5' },
+        { id: 'king_up',  icon: '👑', title: '왕의 세금', desc: '킹 자원생산 +0.2' },
         { id: 'rich',     icon: '💎', title: '보급품',    desc: '즉시 자원 +200' },
         { id: 'heal_all', icon: '💊', title: '긴급 수리', desc: '모든 아군 체력 100% 회복' },
         { id: 'slow',     icon: '❄️', title: '얼음 지대', desc: '적 이동속도 -10%' },
@@ -485,8 +470,11 @@
         { id: 'recycle',  icon: '♻️', title: '재활용',    desc: '판매 환급률 80%로 증가' }
     ];
 
+    // 👾 적 종류 (자폭병 추가)
     const ENEMY_TYPES = [
         { minWave: 1,  type: 'normal', color: '#e74c3c', hpMult: 1.0, spdMult: 1.0, radius: 35, ability: null },
+        // 🔥 자폭병 (Wave 3~)
+        { minWave: 3,  type: 'bomber', color: '#ff6600', hpMult: 0.8, spdMult: 1.3, radius: 30, ability: 'explode' }, 
         { minWave: 5,  type: 'fast',   color: '#f1c40f', hpMult: 0.6, spdMult: 1.5, radius: 25, ability: 'dodge' },
         { minWave: 10, type: 'tank',   color: '#8e44ad', hpMult: 2.5, spdMult: 0.6, radius: 45, ability: 'armor' },
         { minWave: 15, type: 'boss',   color: '#2c3e50', hpMult: 5.0, spdMult: 0.4, radius: 50, ability: 'stun' }
@@ -514,7 +502,8 @@
 
     function startWave(waveNum) {
         wave = waveNum; enemiesSpawned = 0; enemiesKilled = 0;
-        waveTotalEnemies = 5 + Math.floor(wave * 2.5); 
+        // 🔥 적 물량 증가 공식 강화: 5 + Wave * 3
+        waveTotalEnemies = 5 + Math.floor(wave * 3); 
         enemiesToSpawn = waveTotalEnemies;
         spawnFloatingText(`Wave ${wave} Start!`, GAME_WIDTH/2, GAME_HEIGHT/2, '#00e5ff');
         updateUI();
@@ -552,20 +541,15 @@
             case 'spd_up': globalBuffs.spdMult += 0.15; break;
             case 'hp_up':  globalBuffs.hpMult += 0.25; break;
             case 'cost_dn': globalBuffs.costMult *= 0.9; break;
-            case 'king_up': globalBuffs.kingGold += 5; break;
-            case 'rich': 
-                energy += 200; score += 200; 
-                break;
-            case 'heal_all': 
-                defenders.forEach(d => { d.hp = d.maxHp; spawnFloatingText("Heal!", d.x+50, d.y, '#00ff00'); }); 
-                break;
+            case 'king_up': globalBuffs.kingGold += 0.2; break;
+            case 'rich': energy += 200; score += 200; break;
+            case 'heal_all': defenders.forEach(d => { d.hp = d.maxHp; spawnFloatingText("Heal!", d.x+50, d.y, '#00ff00'); }); break;
             case 'slow': globalBuffs.enemySpeedMult *= 0.9; break;
             case 'bounty': globalBuffs.goldPerKill += 3; break;
             case 'range': globalBuffs.rangeMult += 0.2; break;
             case 'crit': globalBuffs.critChance += 0.1; break;
             case 'recycle': globalBuffs.sellRefund = 0.8; break;
         }
-
         defenders.forEach(d => d.applyBuffs());
         document.getElementById('card-selection').style.display = 'none';
         isPaused = false;
@@ -641,7 +625,13 @@
         const sellPrice = Math.floor(invest * globalBuffs.sellRefund);
 
         document.getElementById('upgrade-info').innerText = `Lv.${unit.level} ${UNITS[unit.type].name}`;
-        let statText = (unit.type === 'king') ? `생산량 +5` : `공격력 +30%`;
+        
+        let statText = "";
+        if (unit.type === 'king') {
+            statText = `생산량: ${unit.damage.toFixed(1)} -> ${(unit.damage + 0.2).toFixed(1)}`;
+        } else {
+            statText = `공격력: ${unit.damage} -> ${Math.floor(unit.damage * 1.3)}`;
+        }
         document.getElementById('upgrade-stats').innerText = statText;
         
         const btnUp = document.getElementById('btn-do-upgrade');
@@ -686,26 +676,6 @@
     canvas.addEventListener('mousedown', e => handleInput(e.clientX, e.clientY));
     canvas.addEventListener('touchstart', e => { e.preventDefault(); handleInput(e.touches[0].clientX, e.touches[0].clientY); }, { passive: false });
 
-    // 이름 입력 처리
-    window.submitName = () => {
-        const nameInput = document.getElementById('player-name-input');
-        const name = nameInput.value.trim();
-        if (!name || name.length > 8) {
-            alert("이름을 1~8글자로 입력해주세요.");
-            return;
-        }
-        
-        if (currentDocId && window.updatePlayerName) {
-            window.updatePlayerName(currentDocId, name).then(() => {
-                document.getElementById('res-top-name').innerText = name;
-                document.getElementById('new-record-form').innerHTML = "<h4 style='color:#00e5ff'>이름이 등록되었습니다!</h4>";
-            });
-        }
-    };
-
-    /**
-     * 🏗️ 클래스 정의
-     */
     class Defender {
         constructor(x, y, type) {
             this.x = x; this.y = y; this.type = type;
@@ -720,7 +690,7 @@
             this.maxHp = Math.floor(this.baseStats.hp * lvlMult * globalBuffs.hpMult);
             
             if (this.type === 'king') {
-                this.damage = Math.floor(this.baseStats.dmg + ((this.level-1)*5) + globalBuffs.kingGold);
+                this.damage = 0.2 + ((this.level-1) * 0.2) + globalBuffs.kingGold;
             } else {
                 this.damage = Math.floor(this.baseStats.dmg * Math.pow(1.3, this.level - 1) * globalBuffs.dmgMult);
             }
@@ -744,7 +714,7 @@
             if (this.type === 'king') {
                 energy += this.damage; 
                 score += this.damage; 
-                spawnFloatingText(`+${this.damage}`, cx, this.y, '#ffd700'); updateUI(); return;
+                spawnFloatingText(`+${this.damage.toFixed(1)}`, cx, this.y, '#ffd700'); updateUI(); return;
             }
             
             let finalDmg = this.damage;
@@ -814,7 +784,8 @@
             this.radius = typeData.radius;
             this.ability = typeData.ability;
 
-            let baseHp = 80 + (wave * 30);
+            // 적 체력 증가
+            let baseHp = 80 + (wave * 40);
             if (wave === 1) baseHp *= 0.5;
             
             this.hp = baseHp * typeData.hpMult;
@@ -823,6 +794,11 @@
             let baseSpeed = Math.random() * 0.4 + 0.4 + (wave * 0.02);
             this.speed = baseSpeed * typeData.spdMult;
             this.moveSpeed = this.speed;
+            
+            // 🔥 적 공격력 강화 (웨이브당 +0.2씩 증가)
+            // 적은 초당 60번 공격하므로, 0.2 증가는 초당 데미지(DPS)가 약 12씩 늘어나는 셈입니다.
+            // 이는 폰(기본 병사) 한 명분의 화력이 매 웨이브마다 적에게 추가되는 것과 비슷합니다.
+            this.damage = 0.5 + (wave * 0.2);
             
             this.skillTimer = 0;
         }
@@ -847,7 +823,8 @@
 
             for (let d of defenders) {
                 if (d.y === this.y && this.x < d.x + 80 && this.x > d.x) {
-                    this.moveSpeed = 0; d.hp -= 0.5;
+                    this.moveSpeed = 0; 
+                    d.hp -= this.damage;
                     if (d.hp <= 0) { defenders = defenders.filter(u => u !== d); closeUpgradePanel(); }
                 }
             }
@@ -922,6 +899,24 @@
     }
     function spawnParticles(x, y, c, color) { for(let i=0; i<c; i++) particles.push(new Particle(x, y, color)); }
 
+    // 🔥 자폭 효과 (Shockwave)
+    function spawnShockwave(x, y) {
+        // 커지는 원 파티클 (간단 구현)
+        let wave = new Particle(x, y, '#ffaa00');
+        wave.life = 2.0; // 오래 감
+        wave.draw = function() {
+            ctx.globalAlpha = Math.max(0, this.life/2);
+            ctx.strokeStyle = '#ffaa00';
+            ctx.lineWidth = 5;
+            ctx.beginPath();
+            // 330px까지 커짐 (나이트 범위)
+            ctx.arc(this.x, this.y, 330 * (1 - this.life/2), 0, Math.PI*2); 
+            ctx.stroke();
+            ctx.globalAlpha = 1.0;
+        }
+        particles.push(wave);
+    }
+
     function animate() {
         if (!isPlaying) return;
         requestAnimationFrame(animate);
@@ -959,7 +954,6 @@
                 
                 document.getElementById('res-score').innerText = Math.floor(score);
 
-                // 🔥 랭킹 서버 전송 및 조회
                 if(window.saveScoreAndCheckRank) {
                     window.saveScoreAndCheckRank(Math.floor(score)).then(res => {
                         document.getElementById('res-rank').innerText = `${res.rank}위`;
@@ -970,8 +964,7 @@
                         document.getElementById('start-btn').innerText = "다시 하기";
                         document.getElementById('start-btn').style.display = 'block';
 
-                        // 1등이면 이름 입력 폼 표시
-                        currentDocId = res.docId; // 전역 변수에 저장
+                        currentDocId = res.docId;
                         if (res.isNewRecord) {
                             document.getElementById('new-record-form').style.display = 'block';
                         }
@@ -979,6 +972,23 @@
                 }
             }
             if (e.hp <= 0) {
+                // 🔥 자폭 로직 추가
+                if (e.ability === 'explode') {
+                    spawnShockwave(e.x + 50, e.y + 50); // 중앙 기준
+                    defenders.forEach(d => {
+                        const dist = Math.hypot((d.x+50)-(e.x+50), (d.y+50)-(e.y+50));
+                        // 나이트 범위 (330)
+                        if (dist < 330) {
+                            d.hp -= 10; // 자폭 데미지 10
+                            spawnFloatingText("-10", d.x+50, d.y, '#ff4400', 20);
+                            if (d.hp <= 0) { 
+                                defenders = defenders.filter(u => u !== d); 
+                                closeUpgradePanel(); 
+                            }
+                        }
+                    });
+                }
+
                 enemies.splice(i, 1); 
                 let gain = 10 + globalBuffs.goldPerKill;
                 energy += gain; 
