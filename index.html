@@ -196,7 +196,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, getDocs, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, getDocs, serverTimestamp, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const firebaseConfig = JSON.parse(__firebase_config);
         const app = initializeApp(firebaseConfig);
@@ -204,52 +204,71 @@
         const db = getFirestore(app);
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
-        let currentUser = null;
+        // 인증 상태를 기다리기 위한 프로미스
+        let authReady = new Promise((resolve) => {
+            const unsubscribe = onAuthStateChanged(auth, (user) => {
+                if (user) {
+                    resolve(user);
+                    unsubscribe();
+                }
+            });
+        });
 
-        // 인증 초기화
+        // 초기 로그인 시도
         const initAuth = async () => {
-            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                await signInWithCustomToken(auth, __initial_auth_token);
-            } else {
-                await signInAnonymously(auth);
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch (e) {
+                console.error("Auth init failed", e);
             }
         };
         initAuth();
-        onAuthStateChanged(auth, (user) => { currentUser = user; });
 
-        // 점수 저장 및 랭킹 조회 함수 (window에 등록하여 메인 스크립트에서 호출)
+        // 점수 저장 및 랭킹 조회 함수
         window.submitScoreAndGetRank = async (finalScore) => {
-            if (!currentUser) return { rank: '-', top: '-' };
-
-            const col = collection(db, 'artifacts', appId, 'public', 'data', 'scores');
-            
             try {
-                // 1. 점수 저장
+                // 1. 로그인이 될 때까지 기다림
+                const user = await authReady;
+                if (!user) return { rank: '로그인 실패', top: '-' };
+
+                const col = collection(db, 'artifacts', appId, 'public', 'data', 'scores');
+                
+                // 2. 내 점수 저장
                 await addDoc(col, {
                     score: finalScore,
-                    ts: serverTimestamp()
+                    ts: serverTimestamp(), // 서버 시간
+                    uid: user.uid
                 });
 
-                // 2. 전체 점수 가져오기 (단순 쿼리 규칙 준수)
+                // 3. 전체 점수 가져오기
+                // (Firestore 규칙상 복합 쿼리 제한이 있을 수 있으므로 모든 문서를 가져와서 JS로 정렬)
                 const snapshot = await getDocs(col);
-                const scores = [];
+                let scores = [];
+                
                 snapshot.forEach(doc => {
-                    if (typeof doc.data().score === 'number') {
-                        scores.push(doc.data().score);
+                    const data = doc.data();
+                    if (typeof data.score === 'number') {
+                        scores.push(data.score);
                     }
                 });
 
-                // 3. 정렬 (내림차순)
+                // 4. 점수 내림차순 정렬
                 scores.sort((a, b) => b - a);
 
-                // 4. 내 등수 및 1등 점수 계산
+                // 5. 등수 계산 (같은 점수면 공동 등수)
+                // 내 점수와 같은 첫 번째 인덱스 + 1
                 const rank = scores.indexOf(finalScore) + 1;
-                const top = scores[0];
+                const top = scores.length > 0 ? scores[0] : finalScore;
 
-                return { rank, top };
+                return { rank: rank, top: top };
+
             } catch(e) {
-                console.error("Rank Error:", e);
-                return { rank: '?', top: '?' };
+                console.error("Ranking Error:", e);
+                return { rank: '통신 오류', top: '-' };
             }
         };
     </script>
