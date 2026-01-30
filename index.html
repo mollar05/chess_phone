@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Chess Defense: Syntax Fix</title>
+    <title>Chess Defense: Mobile UI</title>
     <style>
         /* 모바일 기본 설정 */
         body {
@@ -234,6 +234,46 @@
             background: #00e5ff; color: #000; padding: 10px 20px; border: none; border-radius: 5px; font-weight: bold; cursor: pointer;
         }
 
+        /* 🔥 웨이브 알림 모달 - 모바일 최적화 */
+        #wave-modal {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.9);
+            border: 2px solid #00e5ff;
+            border-radius: 16px;
+            padding: 20px;
+            text-align: center;
+            z-index: 80;
+            display: none;
+            
+            /* 반응형 크기 */
+            width: 85%;
+            max-width: 360px;
+            
+            box-shadow: 0 0 30px rgba(0, 229, 255, 0.3);
+            animation: fadeIn 0.3s;
+            box-sizing: border-box;
+        }
+        
+        #wave-modal h2 { margin: 0 0 15px 0; color: #00e5ff; font-size: 8vw; }
+        .wave-info-row { display: flex; justify-content: space-between; margin: 10px 0; font-size: 5vw; border-bottom: 1px solid #444; padding-bottom: 5px;}
+        .wave-info-val { color: #ffd700; font-weight: bold; }
+        
+        .new-enemy-alert { background: #331111; border: 1px solid #ff4444; padding: 10px; border-radius: 8px; margin-top: 15px; }
+        .new-enemy-title { color: #ff4444; font-weight: bold; font-size: 5vw; margin-bottom: 5px; display: block; }
+        .new-enemy-desc { font-size: 3.5vw; color: #ccc; word-break: keep-all; line-height: 1.4; }
+
+        /* PC/태블릿 대응 */
+        @media (min-width: 500px) {
+            #wave-modal h2 { font-size: 32px; }
+            .wave-info-row { font-size: 18px; }
+            .new-enemy-title { font-size: 20px; }
+            .new-enemy-desc { font-size: 14px; }
+        }
+        
+        @keyframes fadeIn { from { opacity: 0; transform: translate(-50%, -60%); } to { opacity: 1; transform: translate(-50%, -50%); } }
+
     </style>
     
     <!-- Firebase SDK (CDN 방식) -->
@@ -273,34 +313,67 @@
             });
         });
 
+        // 🔥 랭킹 로직: 50위 이내만 저장 & 앞 순위 점수 리턴
         window.saveScoreAndCheckRank = async (finalScore) => {
-            if (!db) return { rank: '설정 오류', topScore: '-', topName: '-', isNewRecord: false };
+            if (!db) return { rank: '설정 오류', nextScore: '-', nextRankInfo: '', isNewRecord: false };
+
             try {
                 await authReady;
                 const uid = auth.currentUser ? auth.currentUser.uid : 'guest';
                 const colRef = collection(db, 'scores');
-                const docRef = await addDoc(colRef, {
-                    score: finalScore,
-                    name: "Unknown",
-                    ts: serverTimestamp(),
-                    uid: uid
-                });
+
+                // 1. 전체 점수 먼저 가져오기
                 const snapshot = await getDocs(colRef);
-                let scores = [];
-                snapshot.forEach(d => scores.push({ ...d.data(), id: d.id }));
-                scores.sort((a, b) => b.score - a.score);
-                const myRank = scores.findIndex(s => s.id === docRef.id) + 1;
-                const topPlayer = scores[0];
+                let allScores = [];
+                snapshot.forEach(d => allScores.push({ ...d.data(), id: d.id }));
+                
+                // 내 점수 임시 추가 및 정렬
+                const tempMe = { score: finalScore, name: "Unknown", id: "temp_me" };
+                allScores.push(tempMe);
+                allScores.sort((a, b) => b.score - a.score); // 내림차순 정렬
+
+                const myIndex = allScores.findIndex(s => s.id === "temp_me");
+                const myRank = myIndex + 1;
+                
+                // 🔥 앞 순위 정보 계산 (목표 점수)
+                let nextScore = '-';
+                let nextRankInfo = '최고 기록!';
+
+                if (myRank === 1) {
+                    nextScore = 'New Best!';
+                    nextRankInfo = '1위 달성';
+                } else {
+                    // 내 바로 앞 사람의 점수
+                    const prevPlayer = allScores[myIndex - 1];
+                    nextScore = prevPlayer.score;
+                    nextRankInfo = `${myRank - 1}위 점수`;
+                }
+
+                let savedDocId = null;
+                let isNewRecord = (myRank === 1);
+
+                // 2. 50위 이내일 때만 저장
+                if (myRank <= 50) {
+                    const docRef = await addDoc(colRef, {
+                        score: finalScore,
+                        name: "Unknown",
+                        ts: serverTimestamp(),
+                        uid: uid
+                    });
+                    savedDocId = docRef.id;
+                }
+
                 return {
-                    rank: myRank,
-                    topScore: topPlayer ? topPlayer.score : finalScore,
-                    topName: topPlayer ? topPlayer.name : "Unknown",
-                    isNewRecord: (myRank === 1),
-                    docId: docRef.id
+                    rank: myRank > 50 ? "50위 밖" : myRank,
+                    nextScore: nextScore,
+                    nextRankInfo: nextRankInfo, // "X위 점수" 라벨
+                    isNewRecord: isNewRecord && (myRank <= 50),
+                    docId: savedDocId
                 };
+
             } catch (e) {
-                console.error("Ranking Error:", e);
-                return { rank: 'Error', topScore: '-', topName: '-', isNewRecord: false };
+                console.error("Ranking System Error:", e);
+                return { rank: 'Error', nextScore: '-', isNewRecord: false };
             }
         };
 
@@ -325,13 +398,9 @@
             }
             if (window.currentDocId && window.updatePlayerName) {
                 window.updatePlayerName(window.currentDocId, name).then(() => {
-                    const elName = document.getElementById('res-top-name');
-                    if(elName) elName.innerText = name;
-                    const form = document.getElementById('new-record-form');
-                    if(form) form.innerHTML = "<h4 style='color:#00e5ff'>이름이 등록되었습니다!</h4>";
+                    // UI 업데이트는 랭킹판을 다시 그리지 않으므로 간단히 처리
+                    document.getElementById('new-record-form').innerHTML = "<h4 style='color:#00e5ff'>이름이 등록되었습니다!</h4>";
                 });
-            } else {
-                console.error("Document ID not found");
             }
         };
     </script>
@@ -342,7 +411,7 @@
         <div class="hud-item">
             <span>⚡</span><span class="energy-count" id="ui-energy">150</span>
             <span class="score-display">(점수: <span id="ui-score">0</span>)</span>
-            <span class="life-display">❤️ <span id="ui-lives">1</span></span>
+            <span class="life-display">❤️ <span id="ui-lives">3</span></span>
         </div>
         <div class="hud-item">
             <span class="wave-text" id="ui-wave">Wave 1</span>
@@ -355,6 +424,22 @@
     <div id="game-container">
         <canvas id="gameCanvas"></canvas>
         
+        <div id="wave-modal">
+            <h2 id="wave-modal-title">Wave 1</h2>
+            <div class="wave-info-row">
+                <span>이자 획득</span>
+                <span class="wave-info-val" id="wave-interest">+0 G</span>
+            </div>
+            <div class="wave-info-row">
+                <span>현재 자원</span>
+                <span class="wave-info-val" id="wave-total-gold">150 G</span>
+            </div>
+            <div id="new-enemy-alert" class="new-enemy-alert" style="display:none;">
+                <span class="new-enemy-title">⚠️ 새로운 적 출현!</span>
+                <span id="new-enemy-desc" class="new-enemy-desc">설명</span>
+            </div>
+        </div>
+
         <div id="card-selection">
             <h2>🎉 Wave Clear!</h2>
             <p>보상을 선택하세요</p>
@@ -378,8 +463,8 @@
         <div id="overlay">
             <h1 style="color:#ffd700; margin-bottom:10px; font-size:32px;">🃏 Chess Defense</h1>
             <p id="overlay-msg" style="color:#ccc; text-align:center; margin-bottom:20px; line-height:1.5;">
-                비숍도 Lv.2가 될 때 직업을 선택합니다.<br>
-                속사(연사) vs 마력(한방)
+                50위 안에 들어야 점수가 기록됩니다.<br>
+                당신의 앞 순위를 제치세요!
             </p>
             <div id="rank-info" style="display:none;">
                 <div class="rank-stat">내 점수</div>
@@ -387,11 +472,13 @@
                 <hr style="border-color:#444; margin:10px 0;">
                 <div class="rank-stat">내 순위</div>
                 <div class="rank-val" id="res-rank" style="color:#00e5ff;">계산 중...</div>
+                
+                <!-- 🔥 내 앞 순위 점수 표시 -->
                 <div class="rank-stat" style="font-size:14px; margin-top:15px; color:#aaa;">
-                    👑 Current Champion 👑<br>
-                    <span id="res-top-name" style="color:#ffd700; font-weight:bold;">Unknown</span> : 
-                    <span id="res-top-score" style="color:#fff;">0</span>
+                    🎯 <span id="res-next-rank">목표</span> : 
+                    <span id="res-next-score" style="color:#fff;">-</span>
                 </div>
+
                 <div id="new-record-form">
                     <h3 style="color:#ffd700; margin:10px 0;">🎉 축하합니다! 1등입니다! 🎉</h3>
                     <input type="text" id="player-name-input" placeholder="이름을 입력하세요 (최대 8자)" maxlength="8">
@@ -450,6 +537,7 @@
 
     let isPlaying = false;
     let isPaused = false;
+    let isWaveStarting = false;
     let energy = 150;
     let score = 0; 
     let lives = 3; 
@@ -507,11 +595,11 @@
     ];
 
     const ENEMY_TYPES = [
-        { minWave: 1,  type: 'normal', color: '#e74c3c', hpMult: 1.0, spdMult: 1.0, radius: 35, ability: null },
-        { minWave: 3,  type: 'bomber', color: '#ff6600', hpMult: 0.8, spdMult: 1.3, radius: 30, ability: 'explode' }, 
-        { minWave: 5,  type: 'fast',   color: '#f1c40f', hpMult: 0.6, spdMult: 1.5, radius: 25, ability: 'dodge' },
-        { minWave: 10, type: 'tank',   color: '#8e44ad', hpMult: 2.5, spdMult: 0.6, radius: 45, ability: 'armor' },
-        { minWave: 15, type: 'boss',   color: '#2c3e50', hpMult: 5.0, spdMult: 0.4, radius: 50, ability: 'stun' }
+        { minWave: 1,  type: 'normal', name: '병사', desc: '평범한 적입니다.', color: '#e74c3c', hpMult: 1.0, spdMult: 1.0, radius: 35, ability: null },
+        { minWave: 3,  type: 'bomber', name: '자폭병', desc: '죽을 때 주변에 큰 피해를 줍니다.', color: '#ff6600', hpMult: 0.8, spdMult: 1.3, radius: 30, ability: 'explode' }, 
+        { minWave: 5,  type: 'fast',   name: '정찰병', desc: '빠르고 회피 능력이 있습니다.', color: '#f1c40f', hpMult: 0.6, spdMult: 1.5, radius: 25, ability: 'dodge' },
+        { minWave: 10, type: 'tank',   name: '거인',   desc: '체력이 높고 데미지를 감소시킵니다.', color: '#8e44ad', hpMult: 2.5, spdMult: 0.6, radius: 45, ability: 'armor' },
+        { minWave: 15, type: 'boss',   name: '장군',   desc: '부하를 소환하며 아군을 기절시킵니다.', color: '#2c3e50', hpMult: 5.0, spdMult: 0.4, radius: 50, ability: 'stun' }
     ];
 
     function startGame() {
@@ -526,7 +614,7 @@
     function initGame() {
         defenders = []; enemies = []; projectiles = []; particles = []; floatingTexts = [];
         energy = 150; score = 0; lives = 3; 
-        frame = 0; isPlaying = true; isPaused = false;
+        frame = 0; isPlaying = true; isPaused = false; isWaveStarting = false;
         globalBuffs = { 
             dmgMult: 1.0, spdMult: 1.0, costMult: 1.0, hpMult: 1.0, kingGold: 0,
             enemySpeedMult: 1.0, goldPerKill: 0, rangeMult: 1.0, critChance: 0, sellRefund: 0.5,
@@ -539,6 +627,13 @@
     function startWave(waveNum) {
         wave = waveNum; enemiesSpawned = 0; enemiesKilled = 0;
         currentRerollCost = 0;
+        isWaveStarting = true; 
+
+        const interest = wave > 1 ? Math.round(energy * 0.1 * 10) / 10 : 0;
+        if (interest > 0) {
+            energy += interest;
+            score += interest;
+        }
 
         waveTotalEnemies = 1 + (wave - 1) * 3; 
         
@@ -551,17 +646,36 @@
         }
 
         enemiesToSpawn = waveTotalEnemies;
+        
+        const modal = document.getElementById('wave-modal');
+        document.getElementById('wave-modal-title').innerText = `Wave ${wave}`;
+        document.getElementById('wave-interest').innerText = `+${interest} G`;
+        document.getElementById('wave-total-gold').innerText = `${Math.floor(energy)} G`;
+
+        const newEnemy = ENEMY_TYPES.find(e => e.minWave === wave);
+        const alertBox = document.getElementById('new-enemy-alert');
+        if (newEnemy) {
+            alertBox.style.display = 'block';
+            alertBox.innerHTML = `
+                <span class="new-enemy-title" style="color:${newEnemy.color}">⚠️ 새로운 적 출현! ${newEnemy.name}</span>
+                <span class="new-enemy-desc">${newEnemy.desc}</span>
+            `;
+        } else {
+            alertBox.style.display = 'none';
+        }
+
+        modal.style.display = 'block';
         updateUI();
+
+        setTimeout(() => {
+            modal.style.display = 'none';
+            isWaveStarting = false;
+            updateUI(); 
+        }, 4000);
     }
 
     function checkWaveClear() {
         if (enemiesKilled >= waveTotalEnemies) {
-             const interest = Math.round(energy * 0.1 * 10) / 10;
-             if (interest > 0) {
-                 energy += interest;
-                 score += interest; 
-                 spawnFloatingText(`이자 +${interest}G`, GAME_WIDTH/2, GAME_HEIGHT/2 + 50, '#ffd700', 24);
-             }
              showCardSelection();
         }
     }
@@ -587,7 +701,7 @@
         });
 
         const rerollBtn = document.getElementById('btn-reroll');
-        if (!rerollBtn) {
+        if (!rerollBtn) { 
              const btn = document.createElement('button');
              btn.id = 'btn-reroll';
              btn.className = 'reroll-btn';
@@ -688,7 +802,7 @@
     }
 
     window.selectUnitType = function(type) {
-        if (!isPlaying || isPaused) return;
+        if (!isPlaying || isPaused || isWaveStarting) return;
         if (selectedType === type) selectedType = null;
         else selectedType = type;
         closeUpgradePanel();
@@ -696,7 +810,7 @@
     };
 
     function handleInput(cx, cy) {
-        if (!isPlaying || isPaused) return;
+        if (!isPlaying || isPaused || isWaveStarting) return;
         const rect = canvas.getBoundingClientRect();
         const scaleX = canvas.width / rect.width;
         const scaleY = canvas.height / rect.height;
@@ -916,6 +1030,8 @@
                 this.stunTimer--;
                 return;
             }
+            if (isWaveStarting) return; 
+            
             this.timer++; if (this.timer % this.cd === 0) this.act();
         }
 
@@ -1004,25 +1120,26 @@
             this.radius = typeData.radius;
             this.ability = typeData.ability;
 
-            // 🔥 적 체력: 1웨이브 패널티 제거 (기본 체력으로 시작)
-            let baseHp = 150 * Math.pow(1.05, wave - 1);
-            // if (wave === 1) baseHp *= 0.5; // 삭제됨
+            // 🔥 1% 증가로 수정
+            let baseHp = 150 * Math.pow(1.01, wave - 1);
             
             this.hp = baseHp * typeData.hpMult;
             this.maxHp = this.hp;
 
-            let baseSpeed = Math.random() * 0.4 + 0.4 + (wave * 0.02);
+            // 🔥 0.01 증가로 수정
+            let baseSpeed = Math.random() * 0.4 + 0.4 + (wave * 0.01);
             this.speed = baseSpeed * typeData.spdMult;
             this.moveSpeed = this.speed;
             
-            // 🔥 적 공격력: 0.5 + 웨이브당 0.1 증가
-            this.damage = 0.5 + (wave * 0.1);
+            this.damage = 1 + wave;
             
             this.skillTimer = 0;
             this.isSummoning = false;
         }
 
         update() {
+            if (isWaveStarting) return; 
+
             if (this.isSummoning) {
                 this.skillTimer++;
                 if (this.skillTimer > 60) {
@@ -1190,18 +1307,27 @@
         if (selectedType) { ctx.strokeStyle = '#ffd700'; ctx.lineWidth = 3; ctx.strokeRect(0, 0, GAME_WIDTH-CELL_SIZE, GAME_HEIGHT); }
         if (focusedUnit) { ctx.strokeStyle = '#fff'; ctx.lineWidth = 4; ctx.strokeRect(focusedUnit.x, focusedUnit.y, CELL_SIZE, CELL_SIZE); }
 
-        if (enemiesSpawned < enemiesToSpawn) {
-            let spawnRate = Math.max(60, 300 - (wave * 30)); 
-            if (frame % spawnRate === 0) { enemies.push(new Enemy()); enemiesSpawned++; }
-        }
+        if (!isWaveStarting) {
+            if (enemiesSpawned < enemiesToSpawn) {
+                let spawnRate = Math.max(60, 300 - (wave * 30)); 
+                if (frame % spawnRate === 0) { enemies.push(new Enemy()); enemiesSpawned++; }
+            }
 
-        defenders.forEach(d => d.update());
+            defenders.forEach(d => d.update());
+            enemies.forEach((e, i) => {
+                e.update();
+            });
+        }
+        
         defenders.sort((a,b) => a.y - b.y);
         defenders.forEach(d => d.draw());
 
         enemies.forEach((e, i) => {
-            e.update(); e.draw();
-            if (e.x < 0) {
+             e.draw(); 
+             
+             if (isWaveStarting) return; 
+
+             if (e.x < 0) {
                 enemies.splice(i, 1);
                 lives--;
                 updateUI();
@@ -1222,10 +1348,19 @@
 
                     if(window.saveScoreAndCheckRank) {
                         window.saveScoreAndCheckRank(Math.floor(score)).then(res => {
-                            document.getElementById('res-rank').innerText = `${res.rank}위`;
+                            document.getElementById('res-rank').innerText = res.rank > 50 ? "50위 밖" : `${res.rank}위`;
                             document.getElementById('res-top-score').innerText = res.topScore;
                             document.getElementById('res-top-name').innerText = res.topName;
                             
+                            // 🔥 목표 점수 업데이트
+                            const elNextScore = document.getElementById('res-next-score');
+                            const elNextRank = document.getElementById('res-next-rank');
+                            
+                            if (elNextScore && elNextRank) {
+                                elNextScore.innerText = res.nextScore;
+                                elNextRank.innerText = res.nextRankInfo;
+                            }
+
                             document.querySelector('#overlay-msg').innerText = "수고하셨습니다!";
                             document.getElementById('start-btn').innerText = "다시 하기";
                             document.getElementById('start-btn').style.display = 'block';
@@ -1239,7 +1374,6 @@
                 }
             } else if (e.hp <= 0) {
                 if (e.ability === 'explode') {
-                    // 🔥 자폭 데미지: 5웨이브마다 5씩 증가
                     let explosionDmg = 10 + (Math.floor(wave / 5) * 5);
                     spawnShockwave(e.x + 50, e.y + 50); 
                     defenders.forEach(d => {
@@ -1270,8 +1404,13 @@
                 checkWaveClear();
             }
         });
+
         projectiles.forEach((p, i) => {
-            p.update(); p.draw();
+            if (!isWaveStarting) p.update();
+            p.draw();
+            
+            if (isWaveStarting) return;
+
             if (p.x > GAME_WIDTH || p.y < 0 || p.y > GAME_HEIGHT) { projectiles.splice(i, 1); return; }
             for (let e of enemies) {
                 if (Math.hypot((e.x+50)-p.x, (e.y+50)-p.y) < (40 + e.radius - 35)) {
@@ -1280,10 +1419,19 @@
                 }
             }
         });
-        particles.forEach((p, i) => { p.update(); p.draw(); if (p.life <= 0) particles.splice(i, 1); });
-        floatingTexts.forEach((t, i) => { t.update(); t.draw(); if (t.life <= 0) floatingTexts.splice(i, 1); });
+        
+        particles.forEach((p, i) => { 
+            if (!isWaveStarting) p.update(); 
+            p.draw(); 
+            if (p.life <= 0) particles.splice(i, 1); 
+        });
+        floatingTexts.forEach((t, i) => { 
+            if (!isWaveStarting) t.update(); 
+            t.draw(); 
+            if (t.life <= 0) floatingTexts.splice(i, 1); 
+        });
 
-        frame++;
+        if (!isWaveStarting) frame++;
     }
 </script>
 </body>
