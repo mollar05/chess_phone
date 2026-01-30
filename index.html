@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Chess Defense: Mobile UI</title>
+    <title>Chess Defense: Bomber Rework</title>
     <style>
         /* 모바일 기본 설정 */
         body {
@@ -234,7 +234,7 @@
             background: #00e5ff; color: #000; padding: 10px 20px; border: none; border-radius: 5px; font-weight: bold; cursor: pointer;
         }
 
-        /* 🔥 웨이브 알림 모달 - 모바일 최적화 */
+        /* 웨이브 알림 모달 */
         #wave-modal {
             position: absolute;
             top: 50%; left: 50%;
@@ -246,11 +246,8 @@
             text-align: center;
             z-index: 80;
             display: none;
-            
-            /* 반응형 크기 */
             width: 85%;
             max-width: 360px;
-            
             box-shadow: 0 0 30px rgba(0, 229, 255, 0.3);
             animation: fadeIn 0.3s;
             box-sizing: border-box;
@@ -264,7 +261,6 @@
         .new-enemy-title { color: #ff4444; font-weight: bold; font-size: 5vw; margin-bottom: 5px; display: block; }
         .new-enemy-desc { font-size: 3.5vw; color: #ccc; word-break: keep-all; line-height: 1.4; }
 
-        /* PC/태블릿 대응 */
         @media (min-width: 500px) {
             #wave-modal h2 { font-size: 32px; }
             .wave-info-row { font-size: 18px; }
@@ -342,17 +338,23 @@
                 if (myRank === 1) {
                     nextScore = 'New Best!';
                     nextRankInfo = '1위 달성';
-                } else {
-                    // 내 바로 앞 사람의 점수
+                } else if (myRank <= 50) {
                     const prevPlayer = allScores[myIndex - 1];
                     nextScore = prevPlayer.score;
                     nextRankInfo = `${myRank - 1}위 점수`;
+                } else {
+                    // 50위 밖이면 50위 점수 보여주기 (커트라인)
+                    const cutPlayer = allScores[49]; // 50등 (인덱스 49)
+                    if (cutPlayer) {
+                        nextScore = cutPlayer.score;
+                        nextRankInfo = '50위 점수';
+                    }
                 }
 
                 let savedDocId = null;
                 let isNewRecord = (myRank === 1);
 
-                // 2. 50위 이내일 때만 저장
+                // 🔥 50위 이내일 때만 저장
                 if (myRank <= 50) {
                     const docRef = await addDoc(colRef, {
                         score: finalScore,
@@ -366,7 +368,7 @@
                 return {
                     rank: myRank > 50 ? "50위 밖" : myRank,
                     nextScore: nextScore,
-                    nextRankInfo: nextRankInfo, // "X위 점수" 라벨
+                    nextRankInfo: nextRankInfo,
                     isNewRecord: isNewRecord && (myRank <= 50),
                     docId: savedDocId
                 };
@@ -398,7 +400,6 @@
             }
             if (window.currentDocId && window.updatePlayerName) {
                 window.updatePlayerName(window.currentDocId, name).then(() => {
-                    // UI 업데이트는 랭킹판을 다시 그리지 않으므로 간단히 처리
                     document.getElementById('new-record-form').innerHTML = "<h4 style='color:#00e5ff'>이름이 등록되었습니다!</h4>";
                 });
             }
@@ -449,7 +450,6 @@
             </button>
         </div>
 
-        <!-- 유닛 개별 업그레이드 UI -->
         <div id="upgrade-panel">
             <div id="upgrade-info" style="font-weight:bold; font-size:18px; color:#ffd700; margin-bottom:5px;">Lv.1 폰</div>
             <div id="upgrade-stats" style="color:#ccc; font-size:12px; margin-bottom:5px;">스탯 정보</div>
@@ -463,8 +463,8 @@
         <div id="overlay">
             <h1 style="color:#ffd700; margin-bottom:10px; font-size:32px;">🃏 Chess Defense</h1>
             <p id="overlay-msg" style="color:#ccc; text-align:center; margin-bottom:20px; line-height:1.5;">
-                50위 안에 들어야 점수가 기록됩니다.<br>
-                당신의 앞 순위를 제치세요!
+                자폭병 폭발이 강력해졌습니다 (기본 80!)<br>
+                하지만 직접 공격은 매우 약합니다 (1).
             </p>
             <div id="rank-info" style="display:none;">
                 <div class="rank-stat">내 점수</div>
@@ -473,7 +473,7 @@
                 <div class="rank-stat">내 순위</div>
                 <div class="rank-val" id="res-rank" style="color:#00e5ff;">계산 중...</div>
                 
-                <!-- 🔥 내 앞 순위 점수 표시 -->
+                <!-- 🔥 목표 점수 UI -->
                 <div class="rank-stat" style="font-size:14px; margin-top:15px; color:#aaa;">
                     🎯 <span id="res-next-rank">목표</span> : 
                     <span id="res-next-score" style="color:#fff;">-</span>
@@ -861,6 +861,7 @@
         const btnUp = document.getElementById('btn-do-upgrade');
         const btnAlt = document.getElementById('btn-alt-upgrade');
 
+        // 🔥 폰 선택형 업그레이드 UI
         if (unit.type === 'pawn') {
             if (unit.level === 1) {
                 btnUp.style.display = 'block';
@@ -883,6 +884,7 @@
                 }
             }
         } 
+        // 🔥 비숍 선택형 업그레이드 UI 추가
         else if (unit.type === 'bishop') {
             if (unit.level === 1) {
                 btnUp.style.display = 'block';
@@ -890,7 +892,7 @@
                 btnUp.onclick = () => upgradeSelectedUnit('rapid');
 
                 btnAlt.style.display = 'block';
-                btnAlt.innerText = `마력 (뎀+50% / 공속-10%) - ${nextCost}G`;
+                btnAlt.innerText = `마력 (뎀+35% / 공속-25%) - ${nextCost}G`; // 수치 조정 반영
                 btnAlt.onclick = () => upgradeSelectedUnit('power');
             } else {
                 btnAlt.style.display = 'none';
@@ -921,6 +923,7 @@
 
     window.closeUpgradePanel = () => { document.getElementById('upgrade-panel').style.display = 'none'; focusedUnit = null; };
     
+    // 🔥 업그레이드 함수
     window.upgradeSelectedUnit = (mode) => {
         if (!focusedUnit) return;
         const cost = focusedUnit.getUpgradeCost();
@@ -964,9 +967,10 @@
             this.level = 1; this.baseStats = UNITS[type];
             this.color = this.baseStats.color; this.icon = this.baseStats.icon;
             
+            // 초기화
             this.extraHpMult = 1.0; 
             this.extraSpdMult = 1.0;
-            this.extraDmgMult = 1.0; 
+            this.extraDmgMult = 1.0; // 추가 데미지 보정 (비숍용)
             this.upgradePath = null; 
             this.stunTimer = 0;
             
@@ -996,28 +1000,35 @@
 
         getUpgradeCost() { return Math.floor(this.baseStats.upCost * this.level); }
         
+        // 🔥 레벨업 시 모드 선택 반영
         levelUp(mode) {
             this.level++;
             
+            // 폰 직업 선택 로직
             if (this.type === 'pawn') {
-                if (this.level === 2 && mode) this.upgradePath = mode;
+                // 최초 선택 시 경로 고정
+                if (this.level === 2 && mode) {
+                    this.upgradePath = mode;
+                }
                 
+                // 경로에 따른 스탯 누적
                 if (this.upgradePath === 'berserk') {
-                    this.extraHpMult *= 0.9; 
-                    this.extraSpdMult *= 1.15;
+                    this.extraHpMult *= 0.9; // 체력 감소
+                    this.extraSpdMult *= 1.15; // 공속 증가
                 } else if (this.upgradePath === 'tank') {
-                    this.extraHpMult *= 1.2;
+                    this.extraHpMult *= 1.2; // 체력 증가
                 }
             }
+            // 🔥 비숍 직업 선택 로직
             else if (this.type === 'bishop') {
                 if (this.level === 2 && mode) this.upgradePath = mode;
 
                 if (this.upgradePath === 'rapid') {
-                    this.extraDmgMult *= 0.75; 
-                    this.extraSpdMult *= 1.40; 
+                    this.extraDmgMult *= 0.75; // 뎀감 25%
+                    this.extraSpdMult *= 1.40; // 공속증 40%
                 } else if (this.upgradePath === 'power') {
-                    this.extraDmgMult *= 1.50; 
-                    this.extraSpdMult *= 0.90; 
+                    this.extraDmgMult *= 1.35; // 🔥 데미지 35% 증가
+                    this.extraSpdMult *= 0.75; // 🔥 공속 25% 감소
                 }
             }
             
@@ -1030,8 +1041,6 @@
                 this.stunTimer--;
                 return;
             }
-            if (isWaveStarting) return; 
-            
             this.timer++; if (this.timer % this.cd === 0) this.act();
         }
 
@@ -1080,6 +1089,7 @@
             ctx.fillStyle = '#333'; ctx.fillRect(this.x+5, this.y+5, 90, 90);
             ctx.fillStyle = this.color; ctx.font = '50px Arial'; ctx.textAlign = 'center'; ctx.fillText(this.icon, this.x+50, this.y+65);
             
+            // 🔥 직업 아이콘
             if (this.upgradePath === 'tank') ctx.fillText('🛡️', this.x+20, this.y+30);
             if (this.upgradePath === 'berserk') ctx.fillText('⚔️', this.x+20, this.y+30);
             if (this.upgradePath === 'rapid') ctx.fillText('⚡', this.x+20, this.y+30);
@@ -1121,25 +1131,24 @@
             this.ability = typeData.ability;
 
             // 🔥 1% 증가로 수정
-            let baseHp = 150 * Math.pow(1.01, wave - 1);
+            let baseHp = 100 * Math.pow(1.01, wave - 1);
             
             this.hp = baseHp * typeData.hpMult;
             this.maxHp = this.hp;
 
-            // 🔥 0.01 증가로 수정
-            let baseSpeed = Math.random() * 0.4 + 0.4 + (wave * 0.01);
+            // 🔥 0.001 증가로 수정
+            let baseSpeed = Math.random() * 0.4 + 0.4 + (wave * 0.001);
             this.speed = baseSpeed * typeData.spdMult;
             this.moveSpeed = this.speed;
             
-            this.damage = 1 + wave;
+            // 🔥 적 공격력 0.01 증가
+            this.damage = 1 + (wave * 0.01);
             
             this.skillTimer = 0;
             this.isSummoning = false;
         }
 
         update() {
-            if (isWaveStarting) return; 
-
             if (this.isSummoning) {
                 this.skillTimer++;
                 if (this.skillTimer > 60) {
@@ -1166,9 +1175,11 @@
             for (let d of defenders) {
                 if (d.y === this.y && this.x < d.x + 80 && this.x > d.x) {
                     this.moveSpeed = 0; 
+                    // 적 공격 속도 40% (5프레임 중 2번 공격)
                     if (frame % 5 < 2) {
                         d.hp -= this.damage;
                     }
+                    
                     if (d.hp <= 0) { defenders = defenders.filter(u => u !== d); closeUpgradePanel(); }
                 }
             }
@@ -1348,11 +1359,10 @@
 
                     if(window.saveScoreAndCheckRank) {
                         window.saveScoreAndCheckRank(Math.floor(score)).then(res => {
-                            document.getElementById('res-rank').innerText = res.rank > 50 ? "50위 밖" : `${res.rank}위`;
+                            document.getElementById('res-rank').innerText = res.rank > 100 ? "100위 밖" : `${res.rank}위`;
                             document.getElementById('res-top-score').innerText = res.topScore;
                             document.getElementById('res-top-name').innerText = res.topName;
                             
-                            // 🔥 목표 점수 업데이트
                             const elNextScore = document.getElementById('res-next-score');
                             const elNextRank = document.getElementById('res-next-rank');
                             
@@ -1374,7 +1384,8 @@
                 }
             } else if (e.hp <= 0) {
                 if (e.ability === 'explode') {
-                    let explosionDmg = 10 + (Math.floor(wave / 5) * 5);
+                    // 🔥 자폭 데미지 수정 (기본 80 + 5웨이브마다 10증가)
+                    let explosionDmg = 80 + (Math.floor(wave / 5) * 10);
                     spawnShockwave(e.x + 50, e.y + 50); 
                     defenders.forEach(d => {
                         const dist = Math.hypot((d.x+50)-(e.x+50), (d.y+50)-(e.y+50));
