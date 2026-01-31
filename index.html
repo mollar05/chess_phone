@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Chess Defense: Game Tips</title>
+    <title>Chess Defense: Final Edition</title>
     <style>
         /* 모바일 기본 설정 */
         body {
@@ -70,8 +70,8 @@
             aspect-ratio: 900/500;
         }
 
-        /* 🃏 카드 선택 오버레이 */
-        #card-selection {
+        /* 🃏 공통 오버레이 스타일 */
+        .overlay-base {
             position: absolute;
             top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0, 0, 0, 0.9);
@@ -81,9 +81,15 @@
             align-items: center;
             z-index: 60;
         }
-        
+
+        /* 카드 선택 UI */
         #card-selection h2 { color: #ffd700; margin-bottom: 10px; font-size: 6vw; text-shadow: 0 0 10px #ffd700; }
         #card-selection p { font-size: 3.5vw; color: #ccc; margin-bottom: 15px; }
+
+        /* 저주 선택 UI */
+        #curse-selection { background: rgba(20, 0, 0, 0.95); }
+        #curse-selection h2 { color: #ff3333; margin-bottom: 10px; font-size: 6vw; text-shadow: 0 0 10px #ff0000; }
+        #curse-selection p { font-size: 3.5vw; color: #ffcccc; margin-bottom: 15px; }
 
         .cards-container {
             display: flex;
@@ -109,15 +115,21 @@
             box-shadow: 0 5px 15px rgba(0,0,0,0.5);
             box-sizing: border-box;
         }
-
         .card:active { transform: scale(0.95); border-color: #ffd700; background: #3a3a3a; }
+
+        .curse-card {
+            background: linear-gradient(145deg, #2a0a0a, #330000);
+            border: 2px solid #550000;
+        }
+        .curse-card:active { border-color: #ff0000; background: #4a0000; }
+        .curse-card .card-rare { color: #ff4444; border-color: #ff4444; }
         
         .card-icon { font-size: 8vw; margin-bottom: 5px; margin-top: 10px;}
         .card-title { font-weight: bold; color: #fff; margin-bottom: 5px; font-size: 3.5vw; white-space: nowrap;}
         .card-desc { font-size: 2.8vw; color: #ccc; line-height: 1.3; padding: 0 5px; word-break: keep-all; flex: 1; display: flex; align-items: center; justify-content: center;}
         .card-rare { color: #ffd700; font-size: 2.5vw; margin-top: 5px; margin-bottom: 10px; border: 1px solid #ffd700; padding: 2px 8px; border-radius: 10px;}
 
-        /* 리롤 버튼 스타일 */
+        /* 리롤 버튼 */
         .reroll-btn {
             margin-top: 20px;
             padding: 12px 30px;
@@ -135,8 +147,8 @@
         .reroll-btn:active { transform: scale(0.95); background: #555; }
 
         @media (min-width: 600px) {
-            #card-selection h2 { font-size: 30px; }
-            #card-selection p { font-size: 16px; }
+            #card-selection h2, #curse-selection h2 { font-size: 30px; }
+            #card-selection p, #curse-selection p { font-size: 16px; }
             .card-icon { font-size: 50px; }
             .card-title { font-size: 18px; }
             .card-desc { font-size: 14px; }
@@ -234,7 +246,7 @@
             background: #00e5ff; color: #000; padding: 10px 20px; border: none; border-radius: 5px; font-weight: bold; cursor: pointer;
         }
 
-        /* 🔥 팁 메시지 스타일 */
+        /* 팁 메시지 */
         #tip-msg {
             color: #00e5ff;
             font-size: 16px;
@@ -573,7 +585,7 @@
     let isPlaying = false;
     let isPaused = false;
     let isWaveStarting = false;
-    let energy = 150;
+    let energy = 250; // 🔥 시작 자금 250으로 상향
     let score = 0; 
     let lives = 3; 
     let frame = 0;
@@ -639,12 +651,15 @@
         { id: 'def_buff', icon: '🛡️', title: '단단한 껍질', desc: '적 방어력(뎀감) +2' }
     ];
 
+    // 🔥 적 등장 순서 (수정됨)
     const ENEMY_TYPES = [
         { minWave: 1,  type: 'normal', name: '병사', desc: '평범한 적입니다.', color: '#e74c3c', hpMult: 1.0, spdMult: 1.0, radius: 35, ability: null },
-        { minWave: 3,  type: 'bomber', name: '자폭병', desc: '죽을 때 주변에 큰 피해를 줍니다.', color: '#ff6600', hpMult: 0.8, spdMult: 1.3, radius: 30, ability: 'explode' }, 
-        { minWave: 5,  type: 'fast',   name: '정찰병', desc: '빠르고 회피 능력이 있습니다.', color: '#f1c40f', hpMult: 0.6, spdMult: 1.5, radius: 25, ability: 'dodge' },
+        { minWave: 3,  type: 'fast',   name: '정찰병', desc: '빠르고 회피 능력이 있습니다.', color: '#f1c40f', hpMult: 0.6, spdMult: 1.5, radius: 25, ability: 'dodge' },
         { minWave: 10, type: 'tank',   name: '거인',   desc: '체력이 높고 데미지를 감소시킵니다.', color: '#8e44ad', hpMult: 2.5, spdMult: 0.6, radius: 45, ability: 'armor' },
-        { minWave: 15, type: 'boss',   name: '장군',   desc: '부하를 소환하며 아군을 기절시킵니다.', color: '#2c3e50', hpMult: 5.0, spdMult: 0.4, radius: 50, ability: 'stun' }
+        { minWave: 15, type: 'boss',   name: '장군',   desc: '부하를 소환하며 아군을 기절시킵니다.', color: '#2c3e50', hpMult: 5.0, spdMult: 0.4, radius: 50, ability: 'stun' },
+        { minWave: 23, type: 'jumper', name: '점퍼',   desc: '아군을 뛰어넘어 후방을 공격합니다.', color: '#00ffff', hpMult: 1.0, spdMult: 1.2, radius: 30, ability: 'jump' },
+        { minWave: 26, type: 'mage',   name: '마법사', desc: '주변 적을 치유하고 아군을 약화시킵니다.', color: '#9013fe', hpMult: 0.7, spdMult: 0.7, radius: 35, ability: 'magic' },
+        { minWave: 30, type: 'bomber', name: '자폭병', desc: '죽을 때 강력한 폭발을 일으킵니다.', color: '#ff6600', hpMult: 0.8, spdMult: 1.3, radius: 30, ability: 'explode' }
     ];
 
     // 🔥 팁 목록
@@ -654,7 +669,8 @@
         "💡 Tip: 적은 웨이브를 거듭할수록 세집니다.",
         "💡 Tip: 나이트는 광역 공격에 특화되어 있습니다.",
         "💡 Tip: 10웨이브마다 저주가 찾아옵니다. 대비하세요!",
-        "💡 Tip: 폰을 잘 키우면 훌륭한 탱커가 됩니다."
+        "💡 Tip: 폰을 잘 키우면 훌륭한 탱커가 됩니다.",
+        "💡 Tip: 초반엔 자원을 모으고 10웨이브 이후를 대비하세요!"
     ];
 
     // 랜덤 팁 표시 함수
@@ -677,7 +693,7 @@
 
     function initGame() {
         defenders = []; enemies = []; projectiles = []; particles = []; floatingTexts = [];
-        energy = 150; score = 0; lives = 3; 
+        energy = 250; score = 0; lives = 3; 
         frame = 0; isPlaying = true; isPaused = false; isWaveStarting = false;
         globalBuffs = { 
             dmgMult: 1.0, spdMult: 1.0, costMult: 1.0, hpMult: 1.0, kingGold: 0,
@@ -699,7 +715,14 @@
             score += interest;
         }
 
-        waveTotalEnemies = 1 + (wave - 1) * 3; 
+        // 🔥 웨이브당 적 수 수정: 1웨이브는 무조건 1마리
+        if (wave <= 5) {
+            // 1웨이브: 1, 2웨이브: 3, 3웨이브: 5 ... (2씩 증가)
+            waveTotalEnemies = 1 + (wave - 1) * 2; 
+        } else {
+            // 6웨이브부터는 3씩 증가 (5웨이브가 9마리였으므로 6웨이브는 12마리)
+            waveTotalEnemies = 9 + (wave - 5) * 3;
+        }
         
         let isHorde = Math.random() < 0.05;
         if (isHorde) {
@@ -709,10 +732,17 @@
             spawnFloatingText(`Wave ${wave} Start!`, GAME_WIDTH/2, GAME_HEIGHT/2, '#00e5ff');
         }
 
+        // 🔥 10웨이브마다 보스전
+        let isBossWave = (wave % 10 === 0);
+        if (isBossWave) {
+             waveTotalEnemies = 1 + Math.floor(wave/20); 
+             spawnFloatingText("☠️ BOSS WAVE ☠️", GAME_WIDTH/2, GAME_HEIGHT/2, '#ff00ff', 40);
+        }
+
         enemiesToSpawn = waveTotalEnemies;
         
         const modal = document.getElementById('wave-modal');
-        document.getElementById('wave-modal-title').innerText = `Wave ${wave}`;
+        document.getElementById('wave-modal-title').innerText = isBossWave ? `Wave ${wave} (BOSS)` : `Wave ${wave}`;
         document.getElementById('wave-interest').innerText = `+${interest} G`;
         document.getElementById('wave-total-gold').innerText = `${Math.floor(energy)} G`;
 
@@ -1088,10 +1118,13 @@
             // 초기화
             this.extraHpMult = 1.0; 
             this.extraSpdMult = 1.0;
-            this.extraDmgMult = 1.0; 
+            this.extraDmgMult = 1.0; // 추가 데미지 보정 (비숍용)
             this.upgradePath = null; 
             this.stunTimer = 0;
             
+            // 🔥 디버프 변수 추가 (마법사 적 대비)
+            this.weakened = false;
+
             this.applyBuffs(); 
             this.hp = this.maxHp;
             this.timer = 0; 
@@ -1125,21 +1158,21 @@
                 if (this.level === 2 && mode) this.upgradePath = mode;
                 
                 if (this.upgradePath === 'berserk') {
-                    this.extraHpMult *= 0.9; 
-                    this.extraSpdMult *= 1.15;
+                    this.extraHpMult *= 0.9; // 체력 감소
+                    this.extraSpdMult *= 1.15; // 공속 증가
                 } else if (this.upgradePath === 'tank') {
-                    this.extraHpMult *= 1.2;
+                    this.extraHpMult *= 1.2; // 체력 증가
                 }
             }
             else if (this.type === 'bishop') {
                 if (this.level === 2 && mode) this.upgradePath = mode;
 
                 if (this.upgradePath === 'rapid') {
-                    this.extraDmgMult *= 0.75; 
-                    this.extraSpdMult *= 1.40; 
+                    this.extraDmgMult *= 0.75; // 뎀감 25%
+                    this.extraSpdMult *= 1.40; // 공속증 40%
                 } else if (this.upgradePath === 'power') {
-                    this.extraDmgMult *= 1.35; 
-                    this.extraSpdMult *= 0.75; 
+                    this.extraDmgMult *= 1.35; // 🔥 데미지 35% 증가
+                    this.extraSpdMult *= 0.75; // 🔥 공속 25% 감소
                 }
             }
             
@@ -1155,6 +1188,11 @@
             this.timer++; if (this.timer % this.cd === 0) this.act();
         }
 
+        // 🔥 약화(디버프) 적용 메서드
+        weaken() {
+            this.weakened = true;
+        }
+
         act() {
             const cx = this.x + 50, cy = this.y + 50;
             if (this.type === 'king') {
@@ -1168,6 +1206,13 @@
             if (Math.random() < globalBuffs.critChance) {
                 finalDmg *= 2;
                 isCrit = true;
+            }
+
+            // 🔥 약화 상태면 데미지 50% 감소
+            if (this.weakened) {
+                finalDmg *= 0.5;
+                this.weakened = false; // 1회 적용 후 해제
+                spawnFloatingText("Weak", this.x+50, this.y-20, '#cc00ff', 12);
             }
 
             if (this.type === 'knight') { 
@@ -1210,6 +1255,12 @@
                 ctx.font = '30px Arial'; ctx.fillText('💫', this.x+50, this.y+40);
             }
 
+            // 🔥 약화 상태 표시 (보라색 오라)
+            if (this.weakened) {
+                ctx.strokeStyle = '#9013fe'; ctx.lineWidth = 3; 
+                ctx.strokeRect(this.x+5, this.y+5, 90, 90);
+            }
+
             let stars = "⭐".repeat(Math.min(3, this.level)); if (this.level > 3) stars = `⭐Lv.${this.level}`;
             ctx.font = '12px Arial'; ctx.fillStyle = '#fff'; ctx.fillText(stars, this.x+50, this.y+20);
             const pct = this.hp/this.maxHp;
@@ -1241,11 +1292,16 @@
             this.radius = typeData.radius;
             this.ability = typeData.ability;
 
-            // 🔥 1% 증가로 수정
+            // 🔥 1% 증가로 수정 -> 체력 기본 100
             let baseHp = 100 * Math.pow(1.01, wave - 1);
             // 저주 효과 (체력 증가)
             if (globalBuffs.hpMult_Enemy) baseHp *= globalBuffs.hpMult_Enemy;
             
+            // 🔥 보스 체력 보정 (웨이브 10, 20...)
+            if (wave % 10 === 0 && this.type !== 'normal') {
+                baseHp *= 5; // 보스는 5배 체력
+            }
+
             this.hp = baseHp * typeData.hpMult;
             this.maxHp = this.hp;
 
@@ -1254,15 +1310,30 @@
             this.speed = baseSpeed * typeData.spdMult;
             this.moveSpeed = this.speed;
             
-            // 🔥 적 공격력 0.01 증가
+            // 🔥 적 공격력 0.01 증가 -> 초기 1.0, 100웨이브쯤 2.0
             this.damage = 1 + (wave * 0.01);
+            
+            // 🔥 자폭병 공격력은 1로 고정
+            if (this.type === 'bomber') {
+                this.damage = 1;
+            }
             
             this.skillTimer = 0;
             this.isSummoning = false;
+            this.hasJumped = false; // 🔥 점퍼용 플래그
         }
 
         update() {
             if (isWaveStarting) return; 
+
+            // 🔥 마법사 로직 (3초마다)
+            if (this.ability === 'magic') {
+                this.skillTimer++;
+                if (this.skillTimer > 180) { // 3초
+                    this.skillTimer = 0;
+                    this.castMagic();
+                }
+            }
 
             if (this.isSummoning) {
                 this.skillTimer++;
@@ -1284,11 +1355,21 @@
                     spawnFloatingText("Summon!", this.x + 50, this.y, '#ffffff', 20);
                 }
             } 
-            else if (this.ability === 'explode') {
-            }
 
             for (let d of defenders) {
+                // 충돌 감지 (약 80px 거리)
                 if (d.y === this.y && this.x < d.x + 80 && this.x > d.x) {
+                    
+                    // 🔥 점퍼 로직: 충돌 시 1회 점프
+                    if (this.ability === 'jump' && !this.hasJumped) {
+                        spawnParticles(this.x+50, this.y+50, 10, '#00ffff'); // 사라짐 이펙트
+                        this.x -= CELL_SIZE * 1.5; // 1.5칸 점프
+                        this.hasJumped = true;
+                        spawnParticles(this.x+50, this.y+50, 10, '#00ffff'); // 나타남 이펙트
+                        spawnFloatingText("Jump!", this.x+50, this.y, '#00ffff', 16);
+                        return; // 이번 프레임 이동/공격 스킵
+                    }
+
                     this.moveSpeed = 0; 
                     // 적 공격 속도: 초당 1회 (60프레임 중 1번) -> 폰과 동일
                     if (frame % 60 === 0) {
@@ -1298,6 +1379,28 @@
                 }
             }
             this.x -= this.moveSpeed;
+        }
+
+        // 🔥 마법사 스킬 (힐 & 약화)
+        castMagic() {
+            spawnFloatingText("Magic!", this.x + 50, this.y, '#9013fe', 16);
+            spawnParticles(this.x + 50, this.y + 50, 15, '#9013fe');
+            
+            // 1. 주변 적 힐 (반경 200)
+            enemies.forEach(e => {
+                if (e !== this && Math.hypot((e.x - this.x), (e.y - this.y)) < 200) {
+                    let heal = e.maxHp * 0.05;
+                    e.hp = Math.min(e.maxHp, e.hp + heal);
+                    spawnFloatingText("+", e.x+50, e.y, '#00ff00', 12);
+                }
+            });
+
+            // 2. 전방 아군 약화 (반경 300)
+            defenders.forEach(d => {
+                if (Math.hypot((d.x - this.x), (d.y - this.y)) < 300) {
+                    d.weaken();
+                }
+            });
         }
 
         doSummon() {
