@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Chess Defense: Bomber Rework</title>
+    <title>Chess Defense: Masterpiece</title>
     <style>
-        /* 모바일 기본 설정 */
+        /* --- 모바일 최적화 및 기본 설정 --- */
         body {
             background-color: #121212;
             color: white;
@@ -13,15 +13,15 @@
             margin: 0;
             padding: 0;
             overflow: hidden;
-            touch-action: none;
+            touch-action: none; /* 터치 제스처 방지 */
             display: flex;
             flex-direction: column;
             height: 100vh;
-            height: 100dvh;
-            user-select: none;
+            height: 100dvh; /* 모바일 브라우저 주소창 대응 */
+            user-select: none; /* 텍스트 선택 방지 */
         }
 
-        /* 상단 HUD */
+        /* --- 상단 정보창 (HUD) --- */
         #top-hud {
             height: 50px;
             background: #1e1e1e;
@@ -35,21 +35,22 @@
         }
 
         .hud-item {
-            font-size: 16px;
+            font-size: 15px;
             font-weight: bold;
             display: flex;
             align-items: center;
             gap: 5px;
         }
 
-        .energy-count { color: #ffd700; font-size: 20px; }
-        .score-display { color: #fff; font-size: 14px; margin-left: 10px; }
-        .life-display { color: #ff4444; font-size: 18px; margin-left: 10px; display: flex; align-items: center; gap: 3px; }
+        .energy-count { color: #ffd700; font-size: 18px; }
+        .score-display { color: #fff; font-size: 13px; margin-left: 5px; }
+        .life-display { color: #ff4444; font-size: 16px; margin-left: 8px; display: flex; align-items: center; gap: 2px; }
         .wave-text { color: #00e5ff; font-size: 16px; margin-left: 5px; text-shadow: 0 0 5px #00e5ff;}
-        .progress-bar-bg { width: 60px; height: 8px; background: #333; border-radius: 4px; overflow: hidden; margin-left: 10px; }
+        
+        .progress-bar-bg { width: 50px; height: 6px; background: #333; border-radius: 3px; overflow: hidden; margin-left: 8px; }
         .progress-bar-fill { height: 100%; background: #ff4444; width: 0%; transition: width 0.3s; }
 
-        /* 게임 캔버스 영역 */
+        /* --- 게임 화면 (Canvas) --- */
         #game-container {
             flex: 1;
             display: flex;
@@ -59,7 +60,7 @@
             position: relative;
             overflow: hidden;
             width: 100%;
-            padding-bottom: 90px; 
+            padding-bottom: 90px; /* 하단 버튼 공간 확보 */
             box-sizing: border-box;
         }
 
@@ -67,11 +68,11 @@
             box-shadow: 0 0 20px rgba(0,0,0,0.5);
             max-width: 100%;
             max-height: 100%;
-            aspect-ratio: 900/500;
+            aspect-ratio: 900/500; /* 비율 유지 */
         }
 
-        /* 🃏 카드 선택 오버레이 */
-        #card-selection {
+        /* --- 팝업 UI 공통 스타일 --- */
+        .overlay-base {
             position: absolute;
             top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0, 0, 0, 0.9);
@@ -81,71 +82,53 @@
             align-items: center;
             z-index: 60;
         }
-        
-        #card-selection h2 { color: #ffd700; margin-bottom: 10px; font-size: 6vw; text-shadow: 0 0 10px #ffd700; }
-        #card-selection p { font-size: 3.5vw; color: #ccc; margin-bottom: 15px; }
 
+        /* 1. 카드 선택 UI */
+        #card-selection h2 { color: #ffd700; margin-bottom: 10px; font-size: 6vw; text-shadow: 0 0 10px #ffd700; }
         .cards-container {
             display: flex;
             justify-content: center;
             gap: 2%;
-            width: 95%;
+            width: 96%;
             height: 55%;
         }
-
         .card {
             background: linear-gradient(145deg, #2a2a2a, #333);
             border: 2px solid #555;
             border-radius: 12px;
-            width: 31%;
+            width: 32%;
             height: 100%;
-            padding: 10px 5px;
+            padding: 8px 4px;
             display: flex;
             flex-direction: column;
             align-items: center;
             text-align: center;
             cursor: pointer;
-            transition: transform 0.2s, border-color 0.2s;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+            transition: transform 0.1s;
             box-sizing: border-box;
         }
-
         .card:active { transform: scale(0.95); border-color: #ffd700; background: #3a3a3a; }
         
-        .card-icon { font-size: 8vw; margin-bottom: 5px; margin-top: 10px;}
-        .card-title { font-weight: bold; color: #fff; margin-bottom: 5px; font-size: 3.5vw; white-space: nowrap;}
-        .card-desc { font-size: 2.8vw; color: #ccc; line-height: 1.3; padding: 0 5px; word-break: keep-all; flex: 1; display: flex; align-items: center; justify-content: center;}
-        .card-rare { color: #ffd700; font-size: 2.5vw; margin-top: 5px; margin-bottom: 10px; border: 1px solid #ffd700; padding: 2px 8px; border-radius: 10px;}
+        .card-icon { font-size: 8vw; margin: 5px 0; }
+        .card-title { font-weight: bold; color: #fff; margin-bottom: 5px; font-size: 3.2vw; white-space: nowrap; }
+        .card-desc { font-size: 2.5vw; color: #ccc; line-height: 1.3; padding: 0 2px; word-break: keep-all; flex: 1; display: flex; align-items: center; justify-content: center; }
+        .card-rare { color: #ffd700; font-size: 2.5vw; margin: 5px 0; border: 1px solid #ffd700; padding: 2px 6px; border-radius: 10px;}
 
-        /* 리롤 버튼 스타일 */
+        /* 리롤 버튼 */
         .reroll-btn {
-            margin-top: 20px;
-            padding: 12px 30px;
+            margin-top: 15px;
+            padding: 10px 25px;
             background: #444;
-            border: 2px solid #fff;
+            border: 1px solid #fff;
             color: #fff;
-            border-radius: 25px;
-            font-size: 16px;
+            border-radius: 20px;
+            font-size: 14px;
             font-weight: bold;
             cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 8px;
         }
-        .reroll-btn:active { transform: scale(0.95); background: #555; }
+        .reroll-btn:active { background: #666; }
 
-        @media (min-width: 600px) {
-            #card-selection h2 { font-size: 30px; }
-            #card-selection p { font-size: 16px; }
-            .card-icon { font-size: 50px; }
-            .card-title { font-size: 18px; }
-            .card-desc { font-size: 14px; }
-            .card-rare { font-size: 12px; }
-            .cards-container { width: 80%; height: 50%; gap: 20px;}
-            .card { width: 160px; height: 240px; }
-        }
-
-        /* 업그레이드 패널 */
+        /* 2. 유닛 업그레이드 패널 */
         #upgrade-panel {
             position: absolute;
             bottom: 20px; left: 50%; transform: translateX(-50%);
@@ -154,87 +137,16 @@
             padding: 15px;
             display: none;
             flex-direction: column; align-items: center;
-            z-index: 50; width: 60%; max-width: 300px;
+            z-index: 50; width: 65%; max-width: 300px;
             box-shadow: 0 0 20px rgba(255, 215, 0, 0.3);
         }
-        .action-btn { padding: 12px; border:none; border-radius:8px; width:100%; margin-top:8px; font-weight:bold; cursor:pointer; font-size: 14px;}
+        .action-btn { padding: 12px; border:none; border-radius:8px; width:100%; margin-top:6px; font-weight:bold; cursor:pointer; font-size: 14px;}
         .btn-upgrade { background:#ffd700; color:#000; }
         .btn-alt { background:#00e5ff; color:#000; }
         .btn-sell { background: #e74c3c; color: white; }
         .btn-close { background:#444; color:#fff; }
 
-        /* 하단 유닛 선택 바 */
-        #bottom-bar {
-            height: 90px;
-            background: #1e1e1e;
-            display: flex;
-            justify-content: space-around;
-            align-items: center;
-            padding: 5px;
-            border-top: 2px solid #333;
-            z-index: 20;
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            box-sizing: border-box;
-            padding-bottom: env(safe-area-inset-bottom);
-        }
-
-        .unit-btn {
-            background: #333;
-            border: 2px solid #444;
-            border-radius: 8px;
-            width: 15%;
-            height: 90%;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            cursor: pointer;
-            position: relative;
-        }
-        .unit-btn.selected { border-color: #ffd700; background: #4a4a3a; }
-        .unit-btn.disabled { opacity: 0.4; filter: grayscale(100%); }
-        .unit-cost { font-size: 11px; color: #ffd700; font-weight: bold; }
-
-        /* 오버레이 */
-        #overlay {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.9); display: flex; flex-direction: column;
-            justify-content: center; align-items: center; z-index: 100;
-        }
-        .big-btn { padding: 15px 40px; font-size: 24px; background: #ffd700; border: none; border-radius: 30px; font-weight: bold; cursor: pointer; margin-top: 20px; }
-        
-        #rank-info {
-            background: rgba(255,255,255,0.1);
-            padding: 20px;
-            border-radius: 10px;
-            text-align: center;
-            margin-top: 15px;
-            width: 80%;
-            max-width: 300px;
-            border: 1px solid #555;
-        }
-        .rank-stat { font-size: 18px; color: #ccc; margin: 5px 0; }
-        .rank-val { color: #ffd700; font-weight: bold; font-size: 22px; }
-
-        #new-record-form {
-            display: none;
-            margin-top: 15px;
-            text-align: center;
-            animation: popIn 0.5s ease;
-        }
-        @keyframes popIn { from {transform: scale(0.5); opacity: 0;} to {transform: scale(1); opacity: 1;} }
-        
-        #player-name-input {
-            padding: 10px; font-size: 16px; border-radius: 5px; border: none; width: 70%; margin-bottom: 10px;
-        }
-        .submit-btn {
-            background: #00e5ff; color: #000; padding: 10px 20px; border: none; border-radius: 5px; font-weight: bold; cursor: pointer;
-        }
-
-        /* 웨이브 알림 모달 */
+        /* 3. 웨이브 알림 모달 */
         #wave-modal {
             position: absolute;
             top: 50%; left: 50%;
@@ -246,39 +158,91 @@
             text-align: center;
             z-index: 80;
             display: none;
-            width: 85%;
-            max-width: 360px;
+            width: 80%; max-width: 350px;
             box-shadow: 0 0 30px rgba(0, 229, 255, 0.3);
             animation: fadeIn 0.3s;
-            box-sizing: border-box;
         }
-        
-        #wave-modal h2 { margin: 0 0 15px 0; color: #00e5ff; font-size: 8vw; }
-        .wave-info-row { display: flex; justify-content: space-between; margin: 10px 0; font-size: 5vw; border-bottom: 1px solid #444; padding-bottom: 5px;}
+        #wave-modal h2 { margin: 0 0 10px 0; color: #00e5ff; font-size: 24px; }
+        .wave-info-row { display: flex; justify-content: space-between; margin: 8px 0; font-size: 16px; border-bottom: 1px solid #444; padding-bottom: 4px;}
         .wave-info-val { color: #ffd700; font-weight: bold; }
         
         .new-enemy-alert { background: #331111; border: 1px solid #ff4444; padding: 10px; border-radius: 8px; margin-top: 15px; }
-        .new-enemy-title { color: #ff4444; font-weight: bold; font-size: 5vw; margin-bottom: 5px; display: block; }
-        .new-enemy-desc { font-size: 3.5vw; color: #ccc; word-break: keep-all; line-height: 1.4; }
+        .new-enemy-title { color: #ff4444; font-weight: bold; font-size: 16px; display: block; margin-bottom: 5px;}
+        .new-enemy-desc { font-size: 13px; color: #ccc; word-break: keep-all; line-height: 1.4; }
 
-        @media (min-width: 500px) {
-            #wave-modal h2 { font-size: 32px; }
-            .wave-info-row { font-size: 18px; }
-            .new-enemy-title { font-size: 20px; }
-            .new-enemy-desc { font-size: 14px; }
+        /* 4. 게임 오버 / 메인 화면 */
+        #overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9); display: flex; flex-direction: column;
+            justify-content: center; align-items: center; z-index: 100;
+        }
+        .big-btn { padding: 15px 40px; font-size: 22px; background: #ffd700; border: none; border-radius: 30px; font-weight: bold; cursor: pointer; margin-top: 20px; }
+        
+        #rank-info {
+            background: rgba(255,255,255,0.1);
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            margin-top: 15px;
+            width: 80%; max-width: 300px;
+            border: 1px solid #555;
+        }
+        .rank-stat { font-size: 16px; color: #ccc; margin: 5px 0; }
+        .rank-val { color: #ffd700; font-weight: bold; font-size: 20px; }
+        
+        #new-record-form { display: none; margin-top: 15px; text-align: center; animation: popIn 0.5s ease; }
+        #player-name-input { padding: 10px; font-size: 16px; border-radius: 5px; border: none; width: 70%; margin-bottom: 10px; text-align: center; }
+        .submit-btn { background: #00e5ff; color: #000; padding: 10px 20px; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; }
+
+        /* 하단 유닛 선택 바 (고정) */
+        #bottom-bar {
+            height: 90px;
+            background: #1e1e1e;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            padding: 5px;
+            border-top: 2px solid #333;
+            z-index: 20;
+            position: fixed;
+            bottom: 0; left: 0; width: 100%;
+            box-sizing: border-box;
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+        .unit-btn {
+            background: #333; border: 2px solid #444; border-radius: 8px;
+            width: 15%; height: 90%;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            cursor: pointer; position: relative;
+        }
+        .unit-btn.selected { border-color: #ffd700; background: #4a4a3a; }
+        .unit-btn.disabled { opacity: 0.4; filter: grayscale(100%); }
+        .unit-cost { font-size: 10px; color: #ffd700; font-weight: bold; margin-top: 2px;}
+
+        /* PC 화면 대응 */
+        @media (min-width: 600px) {
+            #card-selection h2 { font-size: 30px; }
+            #card-selection p { font-size: 16px; }
+            .card-icon { font-size: 40px; }
+            .card-title { font-size: 16px; }
+            .card-desc { font-size: 13px; }
+            .card-rare { font-size: 12px; }
+            .cards-container { width: 80%; height: 50%; gap: 20px;}
+            .card { width: 150px; height: 220px; }
         }
         
+        @keyframes popIn { from {transform: scale(0.5); opacity: 0;} to {transform: scale(1); opacity: 1;} }
         @keyframes fadeIn { from { opacity: 0; transform: translate(-50%, -60%); } to { opacity: 1; transform: translate(-50%, -50%); } }
 
     </style>
     
-    <!-- Firebase SDK (CDN 방식) -->
+    <!-- Firebase SDK -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, getDocs, serverTimestamp, updateDoc, doc, limit, query, orderBy } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, getDocs, serverTimestamp, updateDoc, doc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // 🔥 님의 Firebase 설정
+        // 🔥 Firebase 설정
         const firebaseConfig = {
             apiKey: "AIzaSyAQc4zmexSGF19tSTJs6pTgtFOE0z--6XA",
             authDomain: "game-28340361-cd827.firebaseapp.com",
@@ -309,7 +273,7 @@
             });
         });
 
-        // 🔥 랭킹 로직: 50위 이내만 저장 & 앞 순위 점수 리턴
+        // 🔥 랭킹 로직: 50위 이내 저장
         window.saveScoreAndCheckRank = async (finalScore) => {
             if (!db) return { rank: '설정 오류', nextScore: '-', nextRankInfo: '', isNewRecord: false };
 
@@ -318,43 +282,43 @@
                 const uid = auth.currentUser ? auth.currentUser.uid : 'guest';
                 const colRef = collection(db, 'scores');
 
-                // 1. 전체 점수 먼저 가져오기
                 const snapshot = await getDocs(colRef);
                 let allScores = [];
                 snapshot.forEach(d => allScores.push({ ...d.data(), id: d.id }));
                 
-                // 내 점수 임시 추가 및 정렬
                 const tempMe = { score: finalScore, name: "Unknown", id: "temp_me" };
                 allScores.push(tempMe);
-                allScores.sort((a, b) => b.score - a.score); // 내림차순 정렬
+                // 내림차순 정렬 (높은 점수가 1등)
+                allScores.sort((a, b) => b.score - a.score);
 
                 const myIndex = allScores.findIndex(s => s.id === "temp_me");
                 const myRank = myIndex + 1;
                 
-                // 🔥 앞 순위 정보 계산 (목표 점수)
                 let nextScore = '-';
                 let nextRankInfo = '최고 기록!';
 
                 if (myRank === 1) {
                     nextScore = 'New Best!';
                     nextRankInfo = '1위 달성';
-                } else if (myRank <= 50) {
-                    const prevPlayer = allScores[myIndex - 1];
-                    nextScore = prevPlayer.score;
-                    nextRankInfo = `${myRank - 1}위 점수`;
                 } else {
-                    // 50위 밖이면 50위 점수 보여주기 (커트라인)
-                    const cutPlayer = allScores[49]; // 50등 (인덱스 49)
+                    const prevPlayer = allScores[myIndex - 1];
+                    if (prevPlayer) {
+                        nextScore = prevPlayer.score;
+                        nextRankInfo = `${myRank - 1}위 점수`;
+                    }
+                }
+                
+                if (myRank > 50) {
+                    const cutPlayer = allScores[49]; // 50등
                     if (cutPlayer) {
                         nextScore = cutPlayer.score;
-                        nextRankInfo = '50위 점수';
+                        nextRankInfo = '50위 커트라인';
                     }
                 }
 
                 let savedDocId = null;
                 let isNewRecord = (myRank === 1);
 
-                // 🔥 50위 이내일 때만 저장
                 if (myRank <= 50) {
                     const docRef = await addDoc(colRef, {
                         score: finalScore,
@@ -367,6 +331,8 @@
 
                 return {
                     rank: myRank > 50 ? "50위 밖" : myRank,
+                    topScore: allScores[0].score,
+                    topName: allScores[0].name,
                     nextScore: nextScore,
                     nextRankInfo: nextRankInfo,
                     isNewRecord: isNewRecord && (myRank <= 50),
@@ -400,6 +366,8 @@
             }
             if (window.currentDocId && window.updatePlayerName) {
                 window.updatePlayerName(window.currentDocId, name).then(() => {
+                    const elName = document.getElementById('res-top-name');
+                    if(elName) elName.innerText = name;
                     document.getElementById('new-record-form').innerHTML = "<h4 style='color:#00e5ff'>이름이 등록되었습니다!</h4>";
                 });
             }
@@ -441,7 +409,7 @@
             </div>
         </div>
 
-        <div id="card-selection">
+        <div id="card-selection" class="overlay-base">
             <h2>🎉 Wave Clear!</h2>
             <p>보상을 선택하세요</p>
             <div class="cards-container" id="cards-box"></div>
@@ -463,8 +431,8 @@
         <div id="overlay">
             <h1 style="color:#ffd700; margin-bottom:10px; font-size:32px;">🃏 Chess Defense</h1>
             <p id="overlay-msg" style="color:#ccc; text-align:center; margin-bottom:20px; line-height:1.5;">
-                자폭병 폭발이 강력해졌습니다 (기본 80!)<br>
-                하지만 직접 공격은 매우 약합니다 (1).
+                방어선을 구축하고 웨이브를 막아내세요.<br>
+                50위 안에 들면 명예의 전당에 오릅니다.
             </p>
             <div id="rank-info" style="display:none;">
                 <div class="rank-stat">내 점수</div>
@@ -473,10 +441,13 @@
                 <div class="rank-stat">내 순위</div>
                 <div class="rank-val" id="res-rank" style="color:#00e5ff;">계산 중...</div>
                 
-                <!-- 🔥 목표 점수 UI -->
                 <div class="rank-stat" style="font-size:14px; margin-top:15px; color:#aaa;">
                     🎯 <span id="res-next-rank">목표</span> : 
                     <span id="res-next-score" style="color:#fff;">-</span>
+                </div>
+
+                <div class="rank-stat" style="font-size:14px; margin-top:10px; color:#ffd700;">
+                    🏆 전체 1등: <span id="res-top-name">Unknown</span> (<span id="res-top-score">-</span>)
                 </div>
 
                 <div id="new-record-form">
@@ -573,7 +544,7 @@
         'pawn':   { cost: 50,  hp: 400, dmg: 10,  spd: 60,  upCost: 30,  color: '#aaa',    icon: '♟️', name: '폰' },
         'rook':   { cost: 370, hp: 200, dmg: 30,  spd: 90,  upCost: 120, color: '#4a90e2', icon: '♜', name: '룩' },
         'bishop': { cost: 120, hp: 150, dmg: 40,  spd: 60,  upCost: 40,  color: '#9013fe', icon: '♝', name: '비숍' },
-        'knight': { cost: 500, hp: 300, dmg: 18,  spd: 40,  upCost: 200, color: '#7ed321', icon: '♞', name: '나이트' },
+        'knight': { cost: 500, hp: 300, dmg: 18,  spd: 120, upCost: 200, color: '#7ed321', icon: '♞', name: '나이트' },
         'queen':  { cost: 1500, hp: 500, dmg: 25,  spd: 45,  upCost: 300, color: '#ff00ff', icon: '♛', name: '퀸' }
     };
 
@@ -970,7 +941,7 @@
             // 초기화
             this.extraHpMult = 1.0; 
             this.extraSpdMult = 1.0;
-            this.extraDmgMult = 1.0; // 추가 데미지 보정 (비숍용)
+            this.extraDmgMult = 1.0; 
             this.upgradePath = null; 
             this.stunTimer = 0;
             
@@ -1041,6 +1012,8 @@
                 this.stunTimer--;
                 return;
             }
+            if (isWaveStarting) return; 
+            
             this.timer++; if (this.timer % this.cd === 0) this.act();
         }
 
@@ -1130,7 +1103,7 @@
             this.radius = typeData.radius;
             this.ability = typeData.ability;
 
-            // 🔥 1% 증가로 수정
+            // 🔥 1% 증가로 수정 -> 체력 기본 100
             let baseHp = 100 * Math.pow(1.01, wave - 1);
             
             this.hp = baseHp * typeData.hpMult;
@@ -1149,6 +1122,8 @@
         }
 
         update() {
+            if (isWaveStarting) return; 
+
             if (this.isSummoning) {
                 this.skillTimer++;
                 if (this.skillTimer > 60) {
@@ -1175,11 +1150,10 @@
             for (let d of defenders) {
                 if (d.y === this.y && this.x < d.x + 80 && this.x > d.x) {
                     this.moveSpeed = 0; 
-                    // 적 공격 속도 40% (5프레임 중 2번 공격)
-                    if (frame % 5 < 2) {
+                    // 적 공격 속도: 초당 1회 (60프레임 중 1번) -> 폰과 동일
+                    if (frame % 60 === 0) {
                         d.hp -= this.damage;
                     }
-                    
                     if (d.hp <= 0) { defenders = defenders.filter(u => u !== d); closeUpgradePanel(); }
                 }
             }
@@ -1196,13 +1170,19 @@
                 { x: 0, y: CELL_SIZE }
             ];
 
+            // 장군 소환: 자신(boss)을 제외한 타입만 소환
+            const possibleMinions = ENEMY_TYPES.filter(e => e.type !== 'boss' && wave >= e.minWave);
+            const minionTypeData = possibleMinions.length > 0 
+                ? possibleMinions[Math.floor(Math.random() * possibleMinions.length)]
+                : ENEMY_TYPES[0];
+
             offsets.forEach(offset => {
                 const sx = currentGridX + offset.x;
                 const sy = currentGridY + offset.y;
 
                 if (sy >= 0 && sy < GAME_HEIGHT && sx > 0) {
-                    enemies.push(new Enemy(sx, sy, 'normal'));
-                    spawnParticles(sx + 50, sy + 50, 10, '#e74c3c');
+                    enemies.push(new Enemy(sx, sy, minionTypeData.type));
+                    spawnParticles(sx + 50, sy + 50, 10, minionTypeData.color);
                 }
             });
         }
@@ -1359,7 +1339,7 @@
 
                     if(window.saveScoreAndCheckRank) {
                         window.saveScoreAndCheckRank(Math.floor(score)).then(res => {
-                            document.getElementById('res-rank').innerText = res.rank > 100 ? "100위 밖" : `${res.rank}위`;
+                            document.getElementById('res-rank').innerText = res.rank > 50 ? "50위 밖" : `${res.rank}위`;
                             document.getElementById('res-top-score').innerText = res.topScore;
                             document.getElementById('res-top-name').innerText = res.topName;
                             
