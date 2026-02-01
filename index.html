@@ -1379,7 +1379,7 @@
 
                     this.moveSpeed = 0; 
                     // 적 공격 속도: 초당 1회 (60프레임 중 1번) -> 폰과 동일
-                    if (frame % 60 === 0) {
+                    if (frame % 30 === 0) {
                         d.hp -= this.damage;
                     }
                     if (d.hp <= 0) { defenders = defenders.filter(u => u !== d); closeUpgradePanel(); }
