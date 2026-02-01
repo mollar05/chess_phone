@@ -653,12 +653,12 @@
 
     // 🔥 적 등장 순서 (수정됨)
     const ENEMY_TYPES = [
-        { minWave: 3,  type: 'normal', name: '병사', desc: '평범한 적입니다.', color: '#e74c3c', hpMult: 1.0, spdMult: 1.0, radius: 35, ability: null },
+        { minWave: 1,  type: 'normal', name: '병사', desc: '평범한 적입니다.', color: '#e74c3c', hpMult: 1.0, spdMult: 1.0, radius: 35, ability: null },
         { minWave: 5,  type: 'fast',   name: '정찰병', desc: '빠르고 회피 능력이 있습니다.', color: '#f1c40f', hpMult: 0.6, spdMult: 1.5, radius: 25, ability: 'dodge' },
-        { minWave: 10, type: 'tank',   name: '거인',   desc: '체력이 높고 데미지를 감소시킵니다.', color: '#8e44ad', hpMult: 2.5, spdMult: 0.6, radius: 45, ability: 'armor' },
-        { minWave: 20, type: 'boss',   name: '장군',   desc: '부하를 소환하며 아군을 기절시킵니다.', color: '#2c3e50', hpMult: 5.0, spdMult: 0.4, radius: 50, ability: 'stun' },
-        { minWave: 1, type: 'jumper', name: '점퍼',   desc: '아군을 뛰어넘어 후방을 공격합니다.', color: '#00ffff', hpMult: 1.0, spdMult: 1.2, radius: 30, ability: 'jump' },
-        { minWave: 2, type: 'mage',   name: '마법사', desc: '주변 적을 치유하고 아군을 약화시킵니다.', color: '#9013fe', hpMult: 0.7, spdMult: 0.7, radius: 35, ability: 'magic' },
+        { minWave: 20, type: 'tank',   name: '거인',   desc: '체력이 높고 데미지를 감소시킵니다.', color: '#8e44ad', hpMult: 2.5, spdMult: 0.6, radius: 45, ability: 'armor' },
+        { minWave: 10, type: 'boss',   name: '장군',   desc: '부하를 소환하며 아군을 기절시킵니다.', color: '#2c3e50', hpMult: 5.0, spdMult: 0.4, radius: 50, ability: 'stun' },
+        { minWave: 90, type: 'jumper', name: '점퍼',   desc: '아군을 뛰어넘어 후방을 공격합니다.', color: '#00ffff', hpMult: 1.0, spdMult: 1.2, radius: 30, ability: 'jump' },
+        { minWave: 100, type: 'mage',   name: '마법사', desc: '주변 적을 치유하고 아군을 약화시킵니다.', color: '#9013fe', hpMult: 0.7, spdMult: 0.7, radius: 35, ability: 'magic' },
         { minWave: 15, type: 'bomber', name: '자폭병', desc: '죽을 때 강력한 폭발을 일으킵니다.', color: '#ff6600', hpMult: 0.8, spdMult: 1.3, radius: 30, ability: 'explode' }
     ];
 
