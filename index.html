@@ -1318,7 +1318,7 @@
             this.moveSpeed = this.speed;
             
             // 🔥 적 공격력 0.01 증가 -> 초기 1.0, 100웨이브쯤 2.0
-            this.damage = 10 + (wave * 0.01);
+            this.damage = 10 + (wave * 0.1);
             
             // 🔥 자폭병 공격력은 1로 고정
             if (this.type === 'bomber') {
@@ -1379,7 +1379,7 @@
 
                     this.moveSpeed = 0; 
                     // 적 공격 속도: 초당 1회 (60프레임 중 1번) -> 폰과 동일
-                    if (frame % 30 === 0) {
+                    if (frame % 15 === 0) {
                         d.hp -= this.damage;
                     }
                     if (d.hp <= 0) { defenders = defenders.filter(u => u !== d); closeUpgradePanel(); }
