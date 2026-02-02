@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Chess Defense: Final Edition</title>
+    <title>Chess Defense: Summon Fix</title>
     <style>
-        /* 모바일 기본 설정 */
+        /* --- 모바일 최적화 및 기본 설정 --- */
         body {
             background-color: #121212;
             color: white;
@@ -13,15 +13,15 @@
             margin: 0;
             padding: 0;
             overflow: hidden;
-            touch-action: none;
+            touch-action: none; /* 터치 제스처 방지 */
             display: flex;
             flex-direction: column;
             height: 100vh;
-            height: 100dvh;
-            user-select: none;
+            height: 100dvh; /* 모바일 브라우저 주소창 대응 */
+            user-select: none; /* 텍스트 선택 방지 */
         }
 
-        /* 상단 HUD */
+        /* --- 상단 정보창 (HUD) --- */
         #top-hud {
             height: 50px;
             background: #1e1e1e;
@@ -35,21 +35,22 @@
         }
 
         .hud-item {
-            font-size: 16px;
+            font-size: 15px;
             font-weight: bold;
             display: flex;
             align-items: center;
             gap: 5px;
         }
 
-        .energy-count { color: #ffd700; font-size: 20px; }
-        .score-display { color: #fff; font-size: 14px; margin-left: 10px; }
-        .life-display { color: #ff4444; font-size: 18px; margin-left: 10px; display: flex; align-items: center; gap: 3px; }
+        .energy-count { color: #ffd700; font-size: 18px; }
+        .score-display { color: #fff; font-size: 13px; margin-left: 5px; }
+        .life-display { color: #ff4444; font-size: 16px; margin-left: 8px; display: flex; align-items: center; gap: 2px; }
         .wave-text { color: #00e5ff; font-size: 16px; margin-left: 5px; text-shadow: 0 0 5px #00e5ff;}
-        .progress-bar-bg { width: 60px; height: 8px; background: #333; border-radius: 4px; overflow: hidden; margin-left: 10px; }
+        
+        .progress-bar-bg { width: 50px; height: 6px; background: #333; border-radius: 3px; overflow: hidden; margin-left: 8px; }
         .progress-bar-fill { height: 100%; background: #ff4444; width: 0%; transition: width 0.3s; }
 
-        /* 게임 캔버스 영역 */
+        /* --- 게임 화면 (Canvas) --- */
         #game-container {
             flex: 1;
             display: flex;
@@ -59,7 +60,7 @@
             position: relative;
             overflow: hidden;
             width: 100%;
-            padding-bottom: 90px; 
+            padding-bottom: 90px; /* 하단 버튼 공간 확보 */
             box-sizing: border-box;
         }
 
@@ -67,10 +68,10 @@
             box-shadow: 0 0 20px rgba(0,0,0,0.5);
             max-width: 100%;
             max-height: 100%;
-            aspect-ratio: 900/500;
+            aspect-ratio: 900/500; /* 비율 유지 */
         }
 
-        /* 🃏 공통 오버레이 스타일 */
+        /* --- 팝업 UI 공통 스타일 --- */
         .overlay-base {
             position: absolute;
             top: 0; left: 0; width: 100%; height: 100%;
@@ -82,82 +83,52 @@
             z-index: 60;
         }
 
-        /* 카드 선택 UI */
+        /* 1. 카드 선택 UI */
         #card-selection h2 { color: #ffd700; margin-bottom: 10px; font-size: 6vw; text-shadow: 0 0 10px #ffd700; }
-        #card-selection p { font-size: 3.5vw; color: #ccc; margin-bottom: 15px; }
-
-        /* 저주 선택 UI */
-        #curse-selection { background: rgba(20, 0, 0, 0.95); }
-        #curse-selection h2 { color: #ff3333; margin-bottom: 10px; font-size: 6vw; text-shadow: 0 0 10px #ff0000; }
-        #curse-selection p { font-size: 3.5vw; color: #ffcccc; margin-bottom: 15px; }
-
         .cards-container {
             display: flex;
             justify-content: center;
             gap: 2%;
-            width: 95%;
+            width: 96%;
             height: 55%;
         }
-
         .card {
             background: linear-gradient(145deg, #2a2a2a, #333);
             border: 2px solid #555;
             border-radius: 12px;
-            width: 31%;
+            width: 32%;
             height: 100%;
-            padding: 10px 5px;
+            padding: 8px 4px;
             display: flex;
             flex-direction: column;
             align-items: center;
             text-align: center;
             cursor: pointer;
-            transition: transform 0.2s, border-color 0.2s;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+            transition: transform 0.1s;
             box-sizing: border-box;
         }
         .card:active { transform: scale(0.95); border-color: #ffd700; background: #3a3a3a; }
-
-        .curse-card {
-            background: linear-gradient(145deg, #2a0a0a, #330000);
-            border: 2px solid #550000;
-        }
-        .curse-card:active { border-color: #ff0000; background: #4a0000; }
-        .curse-card .card-rare { color: #ff4444; border-color: #ff4444; }
         
-        .card-icon { font-size: 8vw; margin-bottom: 5px; margin-top: 10px;}
-        .card-title { font-weight: bold; color: #fff; margin-bottom: 5px; font-size: 3.5vw; white-space: nowrap;}
-        .card-desc { font-size: 2.8vw; color: #ccc; line-height: 1.3; padding: 0 5px; word-break: keep-all; flex: 1; display: flex; align-items: center; justify-content: center;}
-        .card-rare { color: #ffd700; font-size: 2.5vw; margin-top: 5px; margin-bottom: 10px; border: 1px solid #ffd700; padding: 2px 8px; border-radius: 10px;}
+        .card-icon { font-size: 8vw; margin: 5px 0; }
+        .card-title { font-weight: bold; color: #fff; margin-bottom: 5px; font-size: 3.2vw; white-space: nowrap; }
+        .card-desc { font-size: 2.5vw; color: #ccc; line-height: 1.3; padding: 0 2px; word-break: keep-all; flex: 1; display: flex; align-items: center; justify-content: center; }
+        .card-rare { color: #ffd700; font-size: 2.5vw; margin: 5px 0; border: 1px solid #ffd700; padding: 2px 6px; border-radius: 10px;}
 
         /* 리롤 버튼 */
         .reroll-btn {
-            margin-top: 20px;
-            padding: 12px 30px;
+            margin-top: 15px;
+            padding: 10px 25px;
             background: #444;
-            border: 2px solid #fff;
+            border: 1px solid #fff;
             color: #fff;
-            border-radius: 25px;
-            font-size: 16px;
+            border-radius: 20px;
+            font-size: 14px;
             font-weight: bold;
             cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 8px;
         }
-        .reroll-btn:active { transform: scale(0.95); background: #555; }
+        .reroll-btn:active { background: #666; }
 
-        @media (min-width: 600px) {
-            #card-selection h2, #curse-selection h2 { font-size: 30px; }
-            #card-selection p, #curse-selection p { font-size: 16px; }
-            .card-icon { font-size: 50px; }
-            .card-title { font-size: 18px; }
-            .card-desc { font-size: 14px; }
-            .card-rare { font-size: 12px; }
-            .cards-container { width: 80%; height: 50%; gap: 20px;}
-            .card { width: 160px; height: 240px; }
-        }
-
-        /* 업그레이드 패널 */
+        /* 2. 유닛 업그레이드 패널 */
         #upgrade-panel {
             position: absolute;
             bottom: 20px; left: 50%; transform: translateX(-50%);
@@ -166,99 +137,16 @@
             padding: 15px;
             display: none;
             flex-direction: column; align-items: center;
-            z-index: 50; width: 60%; max-width: 300px;
+            z-index: 50; width: 65%; max-width: 300px;
             box-shadow: 0 0 20px rgba(255, 215, 0, 0.3);
         }
-        .action-btn { padding: 12px; border:none; border-radius:8px; width:100%; margin-top:8px; font-weight:bold; cursor:pointer; font-size: 14px;}
+        .action-btn { padding: 12px; border:none; border-radius:8px; width:100%; margin-top:6px; font-weight:bold; cursor:pointer; font-size: 14px;}
         .btn-upgrade { background:#ffd700; color:#000; }
         .btn-alt { background:#00e5ff; color:#000; }
         .btn-sell { background: #e74c3c; color: white; }
         .btn-close { background:#444; color:#fff; }
 
-        /* 하단 유닛 선택 바 */
-        #bottom-bar {
-            height: 90px;
-            background: #1e1e1e;
-            display: flex;
-            justify-content: space-around;
-            align-items: center;
-            padding: 5px;
-            border-top: 2px solid #333;
-            z-index: 20;
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            box-sizing: border-box;
-            padding-bottom: env(safe-area-inset-bottom);
-        }
-
-        .unit-btn {
-            background: #333;
-            border: 2px solid #444;
-            border-radius: 8px;
-            width: 15%;
-            height: 90%;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            cursor: pointer;
-            position: relative;
-        }
-        .unit-btn.selected { border-color: #ffd700; background: #4a4a3a; }
-        .unit-btn.disabled { opacity: 0.4; filter: grayscale(100%); }
-        .unit-cost { font-size: 11px; color: #ffd700; font-weight: bold; }
-
-        /* 오버레이 */
-        #overlay {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.9); display: flex; flex-direction: column;
-            justify-content: center; align-items: center; z-index: 100;
-        }
-        .big-btn { padding: 15px 40px; font-size: 24px; background: #ffd700; border: none; border-radius: 30px; font-weight: bold; cursor: pointer; margin-top: 20px; }
-        
-        #rank-info {
-            background: rgba(255,255,255,0.1);
-            padding: 20px;
-            border-radius: 10px;
-            text-align: center;
-            margin-top: 15px;
-            width: 80%;
-            max-width: 300px;
-            border: 1px solid #555;
-        }
-        .rank-stat { font-size: 18px; color: #ccc; margin: 5px 0; }
-        .rank-val { color: #ffd700; font-weight: bold; font-size: 22px; }
-
-        #new-record-form {
-            display: none;
-            margin-top: 15px;
-            text-align: center;
-            animation: popIn 0.5s ease;
-        }
-        @keyframes popIn { from {transform: scale(0.5); opacity: 0;} to {transform: scale(1); opacity: 1;} }
-        
-        #player-name-input {
-            padding: 10px; font-size: 16px; border-radius: 5px; border: none; width: 70%; margin-bottom: 10px;
-        }
-        .submit-btn {
-            background: #00e5ff; color: #000; padding: 10px 20px; border: none; border-radius: 5px; font-weight: bold; cursor: pointer;
-        }
-
-        /* 팁 메시지 */
-        #tip-msg {
-            color: #00e5ff;
-            font-size: 16px;
-            margin-top: 20px;
-            font-style: italic;
-            background: rgba(0, 0, 0, 0.5);
-            padding: 5px 15px;
-            border-radius: 20px;
-            border: 1px solid #00e5ff;
-        }
-
-        /* 웨이브 알림 모달 */
+        /* 3. 웨이브 알림 모달 */
         #wave-modal {
             position: absolute;
             top: 50%; left: 50%;
@@ -270,39 +158,117 @@
             text-align: center;
             z-index: 80;
             display: none;
-            width: 85%;
-            max-width: 360px;
+            width: 80%; max-width: 350px;
             box-shadow: 0 0 30px rgba(0, 229, 255, 0.3);
             animation: fadeIn 0.3s;
-            box-sizing: border-box;
         }
-        
-        #wave-modal h2 { margin: 0 0 15px 0; color: #00e5ff; font-size: 8vw; }
-        .wave-info-row { display: flex; justify-content: space-between; margin: 10px 0; font-size: 5vw; border-bottom: 1px solid #444; padding-bottom: 5px;}
+        #wave-modal h2 { margin: 0 0 10px 0; color: #00e5ff; font-size: 24px; }
+        .wave-info-row { display: flex; justify-content: space-between; margin: 8px 0; font-size: 16px; border-bottom: 1px solid #444; padding-bottom: 4px;}
         .wave-info-val { color: #ffd700; font-weight: bold; }
         
         .new-enemy-alert { background: #331111; border: 1px solid #ff4444; padding: 10px; border-radius: 8px; margin-top: 15px; }
-        .new-enemy-title { color: #ff4444; font-weight: bold; font-size: 5vw; margin-bottom: 5px; display: block; }
-        .new-enemy-desc { font-size: 3.5vw; color: #ccc; word-break: keep-all; line-height: 1.4; }
+        .new-enemy-title { color: #ff4444; font-weight: bold; font-size: 16px; display: block; margin-bottom: 5px;}
+        .new-enemy-desc { font-size: 13px; color: #ccc; word-break: keep-all; line-height: 1.4; }
 
-        @media (min-width: 500px) {
-            #wave-modal h2 { font-size: 32px; }
-            .wave-info-row { font-size: 18px; }
-            .new-enemy-title { font-size: 20px; }
-            .new-enemy-desc { font-size: 14px; }
+        /* 저주 선택 UI */
+        #curse-selection { background: rgba(20, 0, 0, 0.95); }
+        #curse-selection h2 { color: #ff3333; margin-bottom: 10px; font-size: 6vw; text-shadow: 0 0 10px #ff0000; }
+        #curse-selection p { font-size: 3.5vw; color: #ffcccc; margin-bottom: 15px; }
+
+        .curse-card {
+            background: linear-gradient(145deg, #2a0a0a, #330000);
+            border: 2px solid #550000;
+        }
+        .curse-card:active { border-color: #ff0000; background: #4a0000; }
+        .curse-card .card-rare { color: #ff4444; border-color: #ff4444; }
+
+        /* 4. 게임 오버 / 메인 화면 */
+        #overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9); display: flex; flex-direction: column;
+            justify-content: center; align-items: center; z-index: 100;
+        }
+        .big-btn { padding: 15px 40px; font-size: 22px; background: #ffd700; border: none; border-radius: 30px; font-weight: bold; cursor: pointer; margin-top: 20px; }
+        
+        #rank-info {
+            background: rgba(255,255,255,0.1);
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            margin-top: 15px;
+            width: 80%; max-width: 300px;
+            border: 1px solid #555;
+        }
+        .rank-stat { font-size: 16px; color: #ccc; margin: 5px 0; }
+        .rank-val { color: #ffd700; font-weight: bold; font-size: 20px; }
+        
+        #new-record-form { display: none; margin-top: 15px; text-align: center; animation: popIn 0.5s ease; }
+        #player-name-input { padding: 10px; font-size: 16px; border-radius: 5px; border: none; width: 70%; margin-bottom: 10px; text-align: center; }
+        .submit-btn { background: #00e5ff; color: #000; padding: 10px 20px; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; }
+
+        /* 팁 메시지 */
+        #tip-msg {
+            color: #00e5ff;
+            font-size: 14px;
+            margin-top: 20px;
+            font-style: italic;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 5px 15px;
+            border-radius: 20px;
+            border: 1px solid #00e5ff;
+            text-align: center;
+            width: 80%;
+            word-break: keep-all;
+        }
+
+        /* 하단 유닛 선택 바 (고정) */
+        #bottom-bar {
+            height: 90px;
+            background: #1e1e1e;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            padding: 5px;
+            border-top: 2px solid #333;
+            z-index: 20;
+            position: fixed;
+            bottom: 0; left: 0; width: 100%;
+            box-sizing: border-box;
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+        .unit-btn {
+            background: #333; border: 2px solid #444; border-radius: 8px;
+            width: 15%; height: 90%;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            cursor: pointer; position: relative;
+        }
+        .unit-btn.selected { border-color: #ffd700; background: #4a4a3a; }
+        .unit-btn.disabled { opacity: 0.4; filter: grayscale(100%); }
+        .unit-cost { font-size: 10px; color: #ffd700; font-weight: bold; margin-top: 2px;}
+
+        /* PC 화면 대응 */
+        @media (min-width: 600px) {
+            #card-selection h2 { font-size: 30px; }
+            .card-icon { font-size: 40px; }
+            .card-title { font-size: 16px; }
+            .card-desc { font-size: 13px; }
+            .card-rare { font-size: 12px; }
+            .cards-container { width: 80%; height: 50%; gap: 20px;}
+            .card { width: 150px; height: 220px; }
         }
         
+        @keyframes popIn { from {transform: scale(0.5); opacity: 0;} to {transform: scale(1); opacity: 1;} }
         @keyframes fadeIn { from { opacity: 0; transform: translate(-50%, -60%); } to { opacity: 1; transform: translate(-50%, -50%); } }
 
     </style>
     
-    <!-- Firebase SDK (CDN 방식) -->
+    <!-- Firebase SDK -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, getDocs, serverTimestamp, updateDoc, doc, limit, query, orderBy } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // 🔥 님의 Firebase 설정
+        // 🔥 Firebase 설정
         const firebaseConfig = {
             apiKey: "AIzaSyAQc4zmexSGF19tSTJs6pTgtFOE0z--6XA",
             authDomain: "game-28340361-cd827.firebaseapp.com",
@@ -376,7 +342,7 @@
                     const cutPlayer = allScores[49]; // 50등
                     if (cutPlayer) {
                         nextScore = cutPlayer.score;
-                        nextRankInfo = '50위 점수';
+                        nextRankInfo = '50위 점수 (커트라인)';
                     }
                 }
 
@@ -651,7 +617,6 @@
         { id: 'def_buff', icon: '🛡️', title: '단단한 껍질', desc: '적 방어력(뎀감) +2' }
     ];
 
-    // 🔥 적 등장 순서 (수정됨)
     const ENEMY_TYPES = [
         { minWave: 1,  type: 'normal', name: '병사', desc: '평범한 적입니다.', color: '#e74c3c', hpMult: 1.0, spdMult: 1.0, radius: 35, ability: null },
         { minWave: 5,  type: 'fast',   name: '정찰병', desc: '빠르고 회피 능력이 있습니다.', color: '#f1c40f', hpMult: 0.6, spdMult: 1.5, radius: 25, ability: 'dodge' },
@@ -727,13 +692,13 @@
             score += interest;
         }
 
-        // 🔥 웨이브당 적 수 수정: 1웨이브는 무조건 1마리
-        if (wave <= 5) {
-            // 1웨이브: 1, 2웨이브: 3, 3웨이브: 5 ... (2씩 증가)
-            waveTotalEnemies = 1 + (wave - 1) * 2; 
+        // 🔥 웨이브당 적 수: 초반(5이하)엔 적게, 후반엔 많게
+        if (wave === 1) {
+            waveTotalEnemies = 1;
+        } else if (wave <= 5) {
+            waveTotalEnemies = 3 + (wave - 2) * 2; 
         } else {
-            // 6웨이브부터는 3씩 증가 (5웨이브가 9마리였으므로 6웨이브는 12마리)
-            waveTotalEnemies = 9 + (wave - 5) * 3;
+            waveTotalEnemies = 12 + (wave - 6) * 3;
         }
         
         let isHorde = Math.random() < 0.05;
@@ -1303,6 +1268,7 @@
             this.color = typeData.color;
             this.radius = typeData.radius;
             this.ability = typeData.ability;
+            this.atkSpeed = typeData.atkSpeed || 60; // 🔥 공격 속도
 
             // 🔥 1% 증가로 수정 -> 체력 기본 100
             let baseHp = 100 * Math.pow(1.01, wave - 1);
@@ -1322,17 +1288,23 @@
             this.speed = baseSpeed * typeData.spdMult;
             this.moveSpeed = this.speed;
             
-            // 🔥 적 공격력 0.1 증가 -> 초기 1.0, 100웨이브쯤 2.0
-            this.damage = 10 + (wave * 2);
+            // 🔥 적 공격력 0.01 증가
+            this.damage = (10 * 2 / 3) + (wave * 0.01);
             
             // 🔥 자폭병 공격력은 1로 고정
             if (this.type === 'bomber') {
                 this.damage = 1;
             }
             
+            // 🔥 정찰병 공격력 고정 (일반 병사와 동일하게)
+            if (this.type === 'fast') {
+                this.damage = (10 * 2 / 3) + (wave * 0.01); 
+            }
+            
             this.skillTimer = 0;
             this.isSummoning = false;
             this.hasJumped = false; // 🔥 점퍼용 플래그
+            this.attackCooldown = 0; // 🔥 개별 공격 쿨타임
         }
 
         update() {
@@ -1368,6 +1340,9 @@
                 }
             } 
 
+            // 🔥 공격 쿨타임 감소
+            if (this.attackCooldown > 0) this.attackCooldown--;
+
             for (let d of defenders) {
                 // 충돌 감지 (약 80px 거리)
                 if (d.y === this.y && this.x < d.x + 80 && this.x > d.x) {
@@ -1383,36 +1358,47 @@
                     }
 
                     this.moveSpeed = 0; 
-                    // 적 공격 속도: 초당 1회 (60프레임 중 1번) -> 폰과 동일
-                    if (frame % 15 === 0) {
+                    
+                    // 🔥 개별 공격 쿨타임 적용
+                    if (this.attackCooldown <= 0) {
                         d.hp -= this.damage;
+                        this.attackCooldown = this.atkSpeed; // 쿨타임 초기화
                     }
+                    
                     if (d.hp <= 0) { defenders = defenders.filter(u => u !== d); closeUpgradePanel(); }
                 }
             }
             this.x -= this.moveSpeed;
         }
 
-        // 🔥 마법사 스킬 (힐 & 약화)
+        // 🔥 마법사 스킬 (힐 & 약화 중 하나만)
         castMagic() {
-            spawnFloatingText("Magic!", this.x + 50, this.y, '#9013fe', 16);
             spawnParticles(this.x + 50, this.y + 50, 15, '#9013fe');
             
-            // 1. 주변 적 힐 (반경 200)
-            enemies.forEach(e => {
-                if (e !== this && Math.hypot((e.x - this.x), (e.y - this.y)) < 200) {
-                    let heal = e.maxHp * 0.05;
-                    e.hp = Math.min(e.maxHp, e.hp + heal);
-                    spawnFloatingText("+", e.x+50, e.y, '#00ff00', 12);
-                }
-            });
-
-            // 2. 전방 아군 약화 (반경 300)
-            defenders.forEach(d => {
-                if (Math.hypot((d.x - this.x), (d.y - this.y)) < 300) {
-                    d.weaken();
-                }
-            });
+            // 50% 확률로 힐 또는 약화 (하나만)
+            if (Math.random() < 0.5) {
+                // 1. 주변 적 힐 (반경 200)
+                let healed = false;
+                enemies.forEach(e => {
+                    if (e !== this && Math.hypot((e.x - this.x), (e.y - this.y)) < 200) {
+                        let heal = e.maxHp * 0.05;
+                        e.hp = Math.min(e.maxHp, e.hp + heal);
+                        spawnFloatingText("+", e.x+50, e.y, '#00ff00', 12);
+                        healed = true;
+                    }
+                });
+                if(healed) spawnFloatingText("Heal!", this.x + 50, this.y, '#00ff00', 14);
+            } else {
+                // 2. 전방 아군 약화 (반경 300)
+                let cursed = false;
+                defenders.forEach(d => {
+                    if (Math.hypot((d.x - this.x), (d.y - this.y)) < 300) {
+                        d.weaken();
+                        cursed = true;
+                    }
+                });
+                if(cursed) spawnFloatingText("Curse!", this.x + 50, this.y, '#cc00ff', 14);
+            }
         }
 
         doSummon() {
@@ -1438,6 +1424,10 @@
                 if (sy >= 0 && sy < GAME_HEIGHT && sx > 0) {
                     enemies.push(new Enemy(sx, sy, minionTypeData.type));
                     spawnParticles(sx + 50, sy + 50, 10, minionTypeData.color);
+                    
+                    // 🔥 [수정] 소환된 적만큼 웨이브 총 적 수 증가 (웨이브 조기 종료 방지)
+                    waveTotalEnemies++;
+                    updateUI(); // UI 갱신
                 }
             });
         }
@@ -1592,7 +1582,6 @@
                     document.querySelector('#overlay h1').innerText = "GAME OVER";
                     document.querySelector('#overlay-msg').innerText = "점수를 저장하고 있습니다...";
                     
-                    // 🔥 게임 오버 시 새로운 팁 표시
                     showRandomTip();
 
                     document.getElementById('overlay').style.display = 'flex';
@@ -1608,7 +1597,6 @@
                             document.getElementById('res-top-score').innerText = res.topScore;
                             document.getElementById('res-top-name').innerText = res.topName;
                             
-                            // 🔥 목표 점수 업데이트
                             const elNextScore = document.getElementById('res-next-score');
                             const elNextRank = document.getElementById('res-next-rank');
                             
@@ -1630,7 +1618,6 @@
                 }
             } else if (e.hp <= 0) {
                 if (e.ability === 'explode') {
-                    // 🔥 자폭 데미지 수정 (기본 80 + 5웨이브마다 10증가)
                     let explosionDmg = 80 + (Math.floor(wave / 5) * 10);
                     spawnShockwave(e.x + 50, e.y + 50); 
                     defenders.forEach(d => {
