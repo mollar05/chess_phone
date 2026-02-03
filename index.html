@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Chess Defense: Summon Fix</title>
+    <title>Chess Defense: Tips & Waves Update</title>
     <style>
         /* --- 모바일 최적화 및 기본 설정 --- */
         body {
@@ -268,7 +268,6 @@
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, getDocs, serverTimestamp, updateDoc, doc, limit, query, orderBy } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // 🔥 Firebase 설정
         const firebaseConfig = {
             apiKey: "AIzaSyAQc4zmexSGF19tSTJs6pTgtFOE0z--6XA",
             authDomain: "game-28340361-cd827.firebaseapp.com",
@@ -299,7 +298,7 @@
             });
         });
 
-        // 🔥 랭킹 로직: 50위 이내만 저장 & 앞 순위 점수 리턴
+        // 랭킹 로직: 50위 이내만 저장 & 앞 순위 점수 리턴
         window.saveScoreAndCheckRank = async (finalScore) => {
             if (!db) return { rank: '설정 오류', nextScore: '-', nextRankInfo: '', isNewRecord: false };
 
@@ -308,21 +307,18 @@
                 const uid = auth.currentUser ? auth.currentUser.uid : 'guest';
                 const colRef = collection(db, 'scores');
 
-                // 1. 전체 점수 먼저 가져오기
                 const snapshot = await getDocs(colRef);
                 let allScores = [];
                 snapshot.forEach(d => allScores.push({ ...d.data(), id: d.id }));
                 
-                // 내 점수 임시 추가 후 정렬
                 const tempMe = { score: finalScore, name: "Unknown", id: "temp_me" };
                 allScores.push(tempMe);
-                allScores.sort((a, b) => b.score - a.score); // 내림차순 정렬
+                allScores.sort((a, b) => b.score - a.score);
 
                 const myIndex = allScores.findIndex(s => s.id === "temp_me");
                 const myRank = myIndex + 1;
                 const topPlayer = allScores[0];
                 
-                // 🔥 목표 점수 계산
                 let nextScore = '-';
                 let nextRankInfo = '최고 기록!';
 
@@ -330,16 +326,15 @@
                     nextScore = 'New Best!';
                     nextRankInfo = '1위 달성';
                 } else {
-                    const prevPlayer = allScores[myIndex - 1]; // 내 바로 앞
+                    const prevPlayer = allScores[myIndex - 1]; 
                     if (prevPlayer) {
                         nextScore = prevPlayer.score;
                         nextRankInfo = `${myRank - 1}위 점수`;
                     }
                 }
                 
-                // 50위 밖이면 50위 점수를 목표로 보여줌
                 if (myRank > 50) {
-                    const cutPlayer = allScores[49]; // 50등
+                    const cutPlayer = allScores[49]; 
                     if (cutPlayer) {
                         nextScore = cutPlayer.score;
                         nextRankInfo = '50위 점수 (커트라인)';
@@ -349,7 +344,6 @@
                 let savedDocId = null;
                 let isNewRecord = (myRank === 1);
 
-                // 🔥 50위 이내일 때만 저장
                 if (myRank <= 50) {
                     const docRef = await addDoc(colRef, {
                         score: finalScore,
@@ -362,8 +356,8 @@
 
                 return {
                     rank: myRank > 50 ? "50위 밖" : myRank,
-                    topScore: allScores[0].score, // 1위 점수
-                    topName: allScores[0].name,   // 1위 이름
+                    topScore: allScores[0].score, 
+                    topName: allScores[0].name,   
                     nextScore: nextScore,
                     nextRankInfo: nextRankInfo,
                     isNewRecord: isNewRecord && (myRank <= 50),
@@ -551,7 +545,7 @@
     let isPlaying = false;
     let isPaused = false;
     let isWaveStarting = false;
-    let energy = 250; // 🔥 시작 자금 250으로 상향
+    let energy = 250; 
     let score = 0; 
     let lives = 3; 
     let frame = 0;
@@ -617,14 +611,16 @@
         { id: 'def_buff', icon: '🛡️', title: '단단한 껍질', desc: '적 방어력(뎀감) +2' }
     ];
 
+    // 🔥 적 종류 재정의 (누락된 타입 복구, 정찰병/자폭병 순서 변경)
+    // 공격 속도(atkSpeed): 프레임 단위, 15 = 0.25초 (매우 빠름)
     const ENEMY_TYPES = [
-        { minWave: 1,  type: 'normal', name: '병사', desc: '평범한 적입니다.', color: '#e74c3c', hpMult: 1.0, spdMult: 1.0, radius: 35, ability: null },
-        { minWave: 5,  type: 'fast',   name: '정찰병', desc: '빠르고 회피 능력이 있습니다.', color: '#f1c40f', hpMult: 0.6, spdMult: 1.5, radius: 25, ability: 'dodge' },
-        { minWave: 20, type: 'tank',   name: '거인',   desc: '체력이 높고 데미지를 감소시킵니다.', color: '#8e44ad', hpMult: 2.5, spdMult: 0.6, radius: 45, ability: 'armor' },
-        { minWave: 10, type: 'boss',   name: '장군',   desc: '부하를 소환하며 아군을 기절시킵니다.', color: '#2c3e50', hpMult: 5.0, spdMult: 0.4, radius: 50, ability: 'stun' },
-        { minWave: 90, type: 'jumper', name: '점퍼',   desc: '아군을 뛰어넘어 후방을 공격합니다.', color: '#00ffff', hpMult: 1.0, spdMult: 1.2, radius: 30, ability: 'jump' },
-        { minWave: 100, type: 'mage',   name: '마법사', desc: '주변 적을 치유하고 아군을 약화시킵니다.', color: '#9013fe', hpMult: 0.7, spdMult: 0.7, radius: 35, ability: 'magic' },
-        { minWave: 15, type: 'bomber', name: '자폭병', desc: '죽을 때 강력한 폭발을 일으킵니다.', color: '#ff6600', hpMult: 0.8, spdMult: 1.3, radius: 30, ability: 'explode' }
+        { minWave: 1,  type: 'normal', name: '병사', desc: '평범한 적입니다.', color: '#e74c3c', hpMult: 1.0, spdMult: 1.0, radius: 35, ability: null, atkSpeed: 15 },
+        { minWave: 5,  type: 'fast',   name: '정찰병', desc: '빠르고 회피 능력이 있습니다.', color: '#f1c40f', hpMult: 0.6, spdMult: 1.5, radius: 25, ability: 'dodge', atkSpeed: 10 },
+        { minWave: 10, type: 'boss',   name: '장군',   desc: '부하를 소환하며 아군을 기절시킵니다.', color: '#2c3e50', hpMult: 5.0, spdMult: 0.4, radius: 50, ability: 'stun', atkSpeed: 15 },
+        { minWave: 15, type: 'bomber', name: '자폭병', desc: '죽을 때 강력한 폭발을 일으킵니다.', color: '#ff6600', hpMult: 0.8, spdMult: 1.3, radius: 30, ability: 'explode', atkSpeed: 15 }, 
+        { minWave: 20, type: 'tank',   name: '거인',   desc: '체력이 높고 데미지를 감소시킵니다.', color: '#8e44ad', hpMult: 2.5, spdMult: 0.6, radius: 45, ability: 'armor', atkSpeed: 25 },
+        { minWave: 90, type: 'jumper', name: '점퍼',   desc: '아군을 뛰어넘어 후방을 공격합니다.', color: '#00ffff', hpMult: 1.0, spdMult: 1.2, radius: 30, ability: 'jump', atkSpeed: 15 },
+        { minWave: 100, type: 'mage',   name: '마법사', desc: '주변 적을 치유하거나 아군을 약화시킵니다.', color: '#9013fe', hpMult: 0.7, spdMult: 0.7, radius: 35, ability: 'magic', atkSpeed: 15 }
     ];
 
     // 🔥 팁 목록
@@ -692,7 +688,6 @@
             score += interest;
         }
 
-        // 🔥 웨이브당 적 수: 초반(5이하)엔 적게, 후반엔 많게
         if (wave === 1) {
             waveTotalEnemies = 1;
         } else if (wave <= 5) {
@@ -709,7 +704,6 @@
             spawnFloatingText(`Wave ${wave} Start!`, GAME_WIDTH/2, GAME_HEIGHT/2, '#00e5ff');
         }
 
-        // 🔥 10웨이브마다 보스전
         let isBossWave = (wave % 10 === 0);
         if (isBossWave) {
              waveTotalEnemies = 1 + Math.floor(wave/20); 
@@ -1032,6 +1026,29 @@
                 }
             }
         }
+        // 🔥 룩 선택형 업그레이드 UI 추가
+        else if (unit.type === 'rook') {
+             if (unit.level === 1) {
+                btnUp.style.display = 'block';
+                btnUp.innerText = `거포 (뎀+30% / 공속-50%) - ${nextCost}G`;
+                btnUp.onclick = () => upgradeSelectedUnit('cannon');
+
+                btnAlt.style.display = 'block';
+                btnAlt.innerText = `속사포 (공속+60% / 뎀-60%) - ${nextCost}G`;
+                btnAlt.onclick = () => upgradeSelectedUnit('vulcan');
+             } else {
+                btnAlt.style.display = 'none';
+                if (unit.upgradePath === 'cannon') {
+                    btnUp.style.display = 'block';
+                    btnUp.innerText = `거포 강화 - ${nextCost}G`;
+                    btnUp.onclick = () => upgradeSelectedUnit('cannon');
+                } else if (unit.upgradePath === 'vulcan') {
+                    btnUp.style.display = 'block';
+                    btnUp.innerText = `속사포 강화 - ${nextCost}G`;
+                    btnUp.onclick = () => upgradeSelectedUnit('vulcan');
+                }
+             }
+        }
         else {
             btnUp.style.display = 'block';
             btnUp.innerText = `강화 (${nextCost}G)`;
@@ -1062,6 +1079,8 @@
             if (mode === 'tank') txt = "GUARDIAN!";
             if (mode === 'rapid') txt = "RAPID!";
             if (mode === 'power') txt = "POWER!";
+            if (mode === 'cannon') txt = "CANNON!";
+            if (mode === 'vulcan') txt = "VULCAN!";
             spawnFloatingText(txt, focusedUnit.x+50, focusedUnit.y);
             
             openUpgradePanel(focusedUnit); updateUI();
@@ -1095,7 +1114,7 @@
             // 초기화
             this.extraHpMult = 1.0; 
             this.extraSpdMult = 1.0;
-            this.extraDmgMult = 1.0; // 추가 데미지 보정 (비숍용)
+            this.extraDmgMult = 1.0; 
             this.upgradePath = null; 
             this.stunTimer = 0;
             
@@ -1150,6 +1169,14 @@
                 } else if (this.upgradePath === 'power') {
                     this.extraDmgMult *= 1.35; // 🔥 데미지 35% 증가
                     this.extraSpdMult *= 0.75; // 🔥 공속 25% 감소
+                }
+            }
+            else if (this.type === 'rook') {
+                if (this.level === 2 && mode) this.upgradePath = mode;
+                if (this.upgradePath === 'cannon') {
+                    this.extraDmgMult *= 1.3; this.extraSpdMult *= 0.5; 
+                } else if (this.upgradePath === 'vulcan') {
+                    this.extraDmgMult *= 0.4; this.extraSpdMult *= 1.6; 
                 }
             }
             
@@ -1227,6 +1254,8 @@
             if (this.upgradePath === 'berserk') ctx.fillText('⚔️', this.x+20, this.y+30);
             if (this.upgradePath === 'rapid') ctx.fillText('⚡', this.x+20, this.y+30);
             if (this.upgradePath === 'power') ctx.fillText('🔮', this.x+20, this.y+30);
+            if (this.upgradePath === 'cannon') ctx.fillText('🧨', this.x+20, this.y+30);
+            if (this.upgradePath === 'vulcan') ctx.fillText('🌪️', this.x+20, this.y+30);
 
             if (this.stunTimer > 0) {
                 ctx.font = '30px Arial'; ctx.fillText('💫', this.x+50, this.y+40);
@@ -1371,7 +1400,7 @@
             this.x -= this.moveSpeed;
         }
 
-        // 🔥 마법사 스킬 (힐 & 약화 중 하나만)
+        // 🔥 마법사 스킬 (힐 & 약화)
         castMagic() {
             spawnParticles(this.x + 50, this.y + 50, 15, '#9013fe');
             
@@ -1425,9 +1454,8 @@
                     enemies.push(new Enemy(sx, sy, minionTypeData.type));
                     spawnParticles(sx + 50, sy + 50, 10, minionTypeData.color);
                     
-                    // 🔥 [수정] 소환된 적만큼 웨이브 총 적 수 증가 (웨이브 조기 종료 방지)
                     waveTotalEnemies++;
-                    updateUI(); // UI 갱신
+                    updateUI(); 
                 }
             });
         }
@@ -1455,7 +1483,47 @@
         
         draw() {
             ctx.fillStyle = this.color; 
-            ctx.beginPath(); ctx.arc(this.x+50, this.y+50, this.radius, 0, Math.PI*2); ctx.fill();
+            
+            // 🔥 점퍼와 마법사만 특수 외형 적용
+            if (this.type === 'jumper') {
+                // 점퍼: 원 + 다리
+                ctx.beginPath(); 
+                ctx.arc(this.x+50, this.y+50, this.radius, 0, Math.PI*2); 
+                ctx.fill();
+                
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.moveTo(this.x+40, this.y+70);
+                ctx.lineTo(this.x+30, this.y+90);
+                ctx.moveTo(this.x+60, this.y+70);
+                ctx.lineTo(this.x+70, this.y+90);
+                ctx.stroke();
+            } 
+            else if (this.type === 'mage') {
+                // 마법사: 원 + 수정구
+                ctx.beginPath(); 
+                ctx.arc(this.x+50, this.y+50, this.radius, 0, Math.PI*2); 
+                ctx.fill();
+                
+                ctx.font = '24px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillStyle = '#fff'; // 텍스트 색상 지정
+                ctx.fillText('🔮', this.x+50, this.y+50);
+            } 
+            else {
+                // 🔥 나머지는 기본 원형 + 눈 (원래대로)
+                ctx.beginPath(); 
+                ctx.arc(this.x+50, this.y+50, this.radius, 0, Math.PI*2); 
+                ctx.fill();
+
+                ctx.fillStyle = '#fff'; 
+                ctx.beginPath(); 
+                ctx.arc(this.x+35, this.y+45, 8, 0, Math.PI*2); 
+                ctx.arc(this.x+65, this.y+45, 8, 0, Math.PI*2); 
+                ctx.fill();
+            }
             
             if (this.isSummoning) {
                 ctx.strokeStyle = '#fff';
@@ -1465,8 +1533,6 @@
                 ctx.stroke();
             }
 
-            ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(this.x+35, this.y+45, 8, 0, Math.PI*2); ctx.arc(this.x+65, this.y+45, 8, 0, Math.PI*2); ctx.fill();
-            
             let hpY = (this.y < 10) ? this.y + 85 : this.y - 15;
 
             ctx.fillStyle = '#000'; ctx.fillRect(this.x+20, hpY, 60, 5);
@@ -1582,6 +1648,7 @@
                     document.querySelector('#overlay h1').innerText = "GAME OVER";
                     document.querySelector('#overlay-msg').innerText = "점수를 저장하고 있습니다...";
                     
+                    // 🔥 게임 오버 시 새로운 팁 표시
                     showRandomTip();
 
                     document.getElementById('overlay').style.display = 'flex';
@@ -1597,6 +1664,7 @@
                             document.getElementById('res-top-score').innerText = res.topScore;
                             document.getElementById('res-top-name').innerText = res.topName;
                             
+                            // 🔥 목표 점수 업데이트
                             const elNextScore = document.getElementById('res-next-score');
                             const elNextRank = document.getElementById('res-next-rank');
                             
@@ -1618,6 +1686,7 @@
                 }
             } else if (e.hp <= 0) {
                 if (e.ability === 'explode') {
+                    // 🔥 자폭 데미지 수정 (기본 80 + 5웨이브마다 10증가)
                     let explosionDmg = 80 + (Math.floor(wave / 5) * 10);
                     spawnShockwave(e.x + 50, e.y + 50); 
                     defenders.forEach(d => {
