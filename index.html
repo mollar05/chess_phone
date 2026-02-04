@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Chess Defense: Tips & Waves Update</title>
+    <title>Chess Defense: Tips & Waves</title>
     <style>
         /* --- 모바일 최적화 및 기본 설정 --- */
         body {
@@ -268,6 +268,7 @@
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, getDocs, serverTimestamp, updateDoc, doc, limit, query, orderBy } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
+        // 🔥 Firebase 설정
         const firebaseConfig = {
             apiKey: "AIzaSyAQc4zmexSGF19tSTJs6pTgtFOE0z--6XA",
             authDomain: "game-28340361-cd827.firebaseapp.com",
@@ -298,7 +299,7 @@
             });
         });
 
-        // 랭킹 로직: 50위 이내만 저장 & 앞 순위 점수 리턴
+        // 랭킹 로직
         window.saveScoreAndCheckRank = async (finalScore) => {
             if (!db) return { rank: '설정 오류', nextScore: '-', nextRankInfo: '', isNewRecord: false };
 
@@ -337,7 +338,7 @@
                     const cutPlayer = allScores[49]; 
                     if (cutPlayer) {
                         nextScore = cutPlayer.score;
-                        nextRankInfo = '50위 점수 (커트라인)';
+                        nextRankInfo = '50위 커트라인';
                     }
                 }
 
@@ -402,7 +403,7 @@
 
     <div id="top-hud">
         <div class="hud-item">
-            <span>⚡</span><span class="energy-count" id="ui-energy">150</span>
+            <span>⚡</span><span class="energy-count" id="ui-energy">ㅋ</span>
             <span class="score-display">(점수: <span id="ui-score">0</span>)</span>
             <span class="life-display">❤️ <span id="ui-lives">3</span></span>
         </div>
@@ -425,7 +426,7 @@
             </div>
             <div class="wave-info-row">
                 <span>현재 자원</span>
-                <span class="wave-info-val" id="wave-total-gold">150 G</span>
+                <span class="wave-info-val" id="wave-total-gold">170 G</span>
             </div>
             <div id="new-enemy-alert" class="new-enemy-alert" style="display:none;">
                 <span class="new-enemy-title">⚠️ 새로운 적 출현!</span>
@@ -545,7 +546,7 @@
     let isPlaying = false;
     let isPaused = false;
     let isWaveStarting = false;
-    let energy = 250; 
+    let energy = 170; 
     let score = 0; 
     let lives = 3; 
     let frame = 0;
@@ -572,6 +573,9 @@
     let projectiles = [];
     let particles = [];
     let floatingTexts = [];
+    
+    // 🔥 포격 시스템 변수
+    let meteors = [];
 
     window.currentDocId = null;
 
@@ -601,7 +605,6 @@
         { id: 'pawn_loot', icon: '🏴‍☠️', title: '약탈자', desc: '폰이 킬할 때마다 +1 자원' }
     ];
 
-    // 🔥 저주 목록
     const CURSE_POOL = [
         { id: 'dmg_down', icon: '📉', title: '녹슨 무기', desc: '아군 공격력 10% 감소' },
         { id: 'spd_down', icon: '🐌', title: '피로',      desc: '아군 공속 10% 감소' },
@@ -611,19 +614,18 @@
         { id: 'def_buff', icon: '🛡️', title: '단단한 껍질', desc: '적 방어력(뎀감) +2' }
     ];
 
-    // 🔥 적 종류 재정의 (누락된 타입 복구, 정찰병/자폭병 순서 변경)
-    // 공격 속도(atkSpeed): 프레임 단위, 15 = 0.25초 (매우 빠름)
+    // 🔥 적 종류 재정의 (Wave 조정)
     const ENEMY_TYPES = [
-        { minWave: 1,  type: 'normal', name: '병사', desc: '평범한 적입니다.', color: '#e74c3c', hpMult: 1.0, spdMult: 1.0, radius: 35, ability: null, atkSpeed: 15 },
-        { minWave: 5,  type: 'fast',   name: '정찰병', desc: '빠르고 회피 능력이 있습니다.', color: '#f1c40f', hpMult: 0.6, spdMult: 1.5, radius: 25, ability: 'dodge', atkSpeed: 10 },
-        { minWave: 10, type: 'boss',   name: '장군',   desc: '부하를 소환하며 아군을 기절시킵니다.', color: '#2c3e50', hpMult: 5.0, spdMult: 0.4, radius: 50, ability: 'stun', atkSpeed: 15 },
-        { minWave: 15, type: 'bomber', name: '자폭병', desc: '죽을 때 강력한 폭발을 일으킵니다.', color: '#ff6600', hpMult: 0.8, spdMult: 1.3, radius: 30, ability: 'explode', atkSpeed: 15 }, 
-        { minWave: 20, type: 'tank',   name: '거인',   desc: '체력이 높고 데미지를 감소시킵니다.', color: '#8e44ad', hpMult: 2.5, spdMult: 0.6, radius: 45, ability: 'armor', atkSpeed: 25 },
-        { minWave: 90, type: 'jumper', name: '점퍼',   desc: '아군을 뛰어넘어 후방을 공격합니다.', color: '#00ffff', hpMult: 1.0, spdMult: 1.2, radius: 30, ability: 'jump', atkSpeed: 15 },
-        { minWave: 100, type: 'mage',   name: '마법사', desc: '주변 적을 치유하거나 아군을 약화시킵니다.', color: '#9013fe', hpMult: 0.7, spdMult: 0.7, radius: 35, ability: 'magic', atkSpeed: 15 }
+        { minWave: 1,  type: 'normal', name: '병사', desc: '평범한 적입니다.', color: '#e74c3c', hpMult: 1.0, spdMult: 1.0, radius: 35, ability: null, atkSpeed: 60 },
+        { minWave: 3,  type: 'fast',   name: '정찰병', desc: '빠르고 회피 능력이 있습니다.', color: '#f1c40f', hpMult: 0.6, spdMult: 1.5, radius: 25, ability: 'dodge', atkSpeed: 30 },
+        { minWave: 10, type: 'boss',   name: '장군',   desc: '부하를 소환하며 아군을 기절시킵니다.', color: '#2c3e50', hpMult: 5.0, spdMult: 0.4, radius: 50, ability: 'stun', atkSpeed: 60 },
+        { minWave: 13, type: 'bomber', name: '자폭병', desc: '죽을 때 강력한 폭발을 일으킵니다.', color: '#ff6600', hpMult: 0.8, spdMult: 1.3, radius: 30, ability: 'explode', atkSpeed: 60 }, 
+        { minWave: 17, type: 'tank',   name: '거인',   desc: '체력이 높고 데미지를 감소시킵니다.', color: '#8e44ad', hpMult: 2.5, spdMult: 0.6, radius: 45, ability: 'armor', atkSpeed: 90 },
+        { minWave: 20, type: 'jumper', name: '점퍼',   desc: '아군을 뛰어넘어 후방을 공격합니다.', color: '#00ffff', hpMult: 1.0, spdMult: 1.2, radius: 30, ability: 'jump', atkSpeed: 60 },
+        { minWave: 25, type: 'mage',   name: '마법사', desc: '주변 적을 치유하거나 아군을 약화시킵니다.', color: '#9013fe', hpMult: 0.7, spdMult: 0.7, radius: 35, ability: 'magic', atkSpeed: 60 }
     ];
 
-    // 🔥 팁 목록
+    // 🔥 팁 목록 (업데이트됨)
     const TIPS = [
         "💡 Tip: 시작 기물로는 비숍이 좋습니다.",
         "💡 Tip: 자폭병 범위는 보이는 것보다 작습니다.",
@@ -643,10 +645,10 @@
         "💡 Tip: 점퍼는 미완성 몹이다...",
         "💡 Tip: 점퍼는 미완성 몹일까?",
         "💡 Tip: 팁 적기도 힘들다...",
-        "💡 Tip: 팁 쓸걸 추천 받겠습니다."
+        "💡 Tip: 팁 쓸걸 추천 받겠습니다.",
+        "💡 Tip: 정찰병은 30% 확률로 공격을 회피합니다." // 🔥 추가됨
     ];
 
-    // 랜덤 팁 표시 함수
     function showRandomTip() {
         const tipEl = document.getElementById('tip-msg');
         if (tipEl) {
@@ -666,7 +668,8 @@
 
     function initGame() {
         defenders = []; enemies = []; projectiles = []; particles = []; floatingTexts = [];
-        energy = 250; score = 0; lives = 3; 
+        meteors = []; // 🔥 초기화
+        energy = 170; score = 0; lives = 3; 
         frame = 0; isPlaying = true; isPaused = false; isWaveStarting = false;
         globalBuffs = { 
             dmgMult: 1.0, spdMult: 1.0, costMult: 1.0, hpMult: 1.0, kingGold: 0,
@@ -778,7 +781,6 @@
         document.getElementById('card-selection').style.display = 'flex';
     }
 
-    // 🔥 저주 선택창 표시
     function showCurseSelection() {
         isPaused = true;
         const curseBox = document.getElementById('curse-box');
@@ -789,7 +791,7 @@
 
         picks.forEach(curse => {
             const el = document.createElement('div');
-            el.className = 'card curse-card'; // 저주 카드 스타일
+            el.className = 'card curse-card'; 
             el.innerHTML = `
                 <div class="card-icon">${curse.icon}</div>
                 <div class="card-title" style="color:#ff6666">${curse.title}</div>
@@ -803,22 +805,18 @@
         document.getElementById('curse-selection').style.display = 'flex';
     }
 
-    // 🔥 저주 적용
     function selectCurse(curseId) {
         switch(curseId) {
-            case 'dmg_down': globalBuffs.dmgMult *= 0.9; break; // 아군 뎀감
-            case 'spd_down': globalBuffs.spdMult *= 0.9; break; // 아군 공속감
-            case 'cost_up':  globalBuffs.costMult *= 1.2; break; // 비용 증가
+            case 'dmg_down': globalBuffs.dmgMult *= 0.9; break; 
+            case 'spd_down': globalBuffs.spdMult *= 0.9; break; 
+            case 'cost_up':  globalBuffs.costMult *= 1.2; break; 
             case 'hp_buff':  
                  globalBuffs.hpMult_Enemy = (globalBuffs.hpMult_Enemy || 1.0) * 1.2; 
                  break;
-            case 'spd_buff': globalBuffs.enemySpeedMult *= 1.1; break; // 적 이속 증가
-            case 'def_buff': globalBuffs.enemyDefense += 2; break; // 적 방어력
+            case 'spd_buff': globalBuffs.enemySpeedMult *= 1.1; break; 
+            case 'def_buff': globalBuffs.enemyDefense += 2; break; 
         }
-        
-        // 유닛들 스탯 재계산
         defenders.forEach(d => d.applyBuffs());
-        
         document.getElementById('curse-selection').style.display = 'none';
         isPaused = false;
         startWave(wave + 1);
@@ -865,7 +863,6 @@
         defenders.forEach(d => d.applyBuffs());
         document.getElementById('card-selection').style.display = 'none';
 
-        // 🔥 10웨이브마다 저주 선택
         if (wave % 10 === 0) {
             showCurseSelection();
         } else {
@@ -1280,6 +1277,42 @@
         }
     }
 
+    // 🔥 Meteor Class 추가
+    class Meteor {
+        constructor(x, y, damage) {
+            this.x = x;
+            this.y = y;
+            this.damage = damage;
+            this.timer = 180; // 3초 (60fps 기준)
+        }
+
+        update() {
+            this.timer--;
+        }
+
+        draw() {
+            // 경고 표시 (점점 작아지는 원)
+            if (this.timer > 0) {
+                let ratio = this.timer / 180;
+                ctx.strokeStyle = `rgba(255, 0, 0, ${0.5 + (1-ratio)*0.5})`;
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.arc(this.x + 50, this.y + 50, 45 * ratio, 0, Math.PI*2);
+                ctx.stroke();
+
+                ctx.fillStyle = `rgba(255, 0, 0, 0.2)`;
+                ctx.beginPath();
+                ctx.arc(this.x + 50, this.y + 50, 45, 0, Math.PI*2);
+                ctx.fill();
+
+                // 텍스트 표시
+                ctx.fillStyle = '#fff';
+                ctx.font = '14px Arial';
+                ctx.fillText((this.timer/60).toFixed(1), this.x + 50, this.y + 50);
+            }
+        }
+    }
+
     class Enemy {
         constructor(spawnX, spawnY, forcedType) {
             this.y = (spawnY !== undefined) ? spawnY : Math.floor(Math.random() * ROWS) * CELL_SIZE;
@@ -1299,8 +1332,8 @@
             this.ability = typeData.ability;
             this.atkSpeed = typeData.atkSpeed || 60; // 🔥 공격 속도
 
-            // 🔥 1% 증가로 수정 -> 체력 기본 100
-            let baseHp = 100 * Math.pow(1.01, wave - 1);
+            // 🔥 3% 증가로 수정 -> 체력 기본 100
+            let baseHp = 100 * Math.pow(3, wave - 1);
             // 저주 효과 (체력 증가)
             if (globalBuffs.hpMult_Enemy) baseHp *= globalBuffs.hpMult_Enemy;
             
@@ -1317,8 +1350,8 @@
             this.speed = baseSpeed * typeData.spdMult;
             this.moveSpeed = this.speed;
             
-            // 🔥 적 공격력 0.01 증가
-            this.damage = (10 * 2 / 3) + (wave * 0.01);
+            // 🔥 적 공격력 2 증가
+            this.damage = 10 + (wave * 2);
             
             // 🔥 자폭병 공격력은 1로 고정
             if (this.type === 'bomber') {
@@ -1383,7 +1416,10 @@
                         this.hasJumped = true;
                         spawnParticles(this.x+50, this.y+50, 10, '#00ffff'); // 나타남 이펙트
                         spawnFloatingText("Jump!", this.x+50, this.y, '#00ffff', 16);
-                        return; // 이번 프레임 이동/공격 스킵
+                        
+                        // 점프 후 0.5초(30프레임) 딜레이 부여 (무적 시간 방지)
+                        this.attackCooldown = 30;
+                        return; 
                     }
 
                     this.moveSpeed = 0; 
@@ -1400,7 +1436,7 @@
             this.x -= this.moveSpeed;
         }
 
-        // 🔥 마법사 스킬 (힐 & 약화)
+        // 🔥 마법사 스킬 (힐 & 약화 중 하나만)
         castMagic() {
             spawnParticles(this.x + 50, this.y + 50, 15, '#9013fe');
             
@@ -1616,6 +1652,18 @@
         if (focusedUnit) { ctx.strokeStyle = '#fff'; ctx.lineWidth = 4; ctx.strokeRect(focusedUnit.x, focusedUnit.y, CELL_SIZE, CELL_SIZE); }
 
         if (!isWaveStarting) {
+            // 🔥 전술 폭격 (Wave 12+)
+            if (wave >= 12 && frame % 400 === 0) { // 약 6.6초마다
+                // 무작위 유닛 타겟
+                if (defenders.length > 0) {
+                    const target = defenders[Math.floor(Math.random() * defenders.length)];
+                    meteors.push(new Meteor(target.x, target.y, 100 + wave * 10));
+                } else {
+                    // 유닛 없으면 빈 땅에 (위협용)
+                    meteors.push(new Meteor(Math.random() * GAME_WIDTH, Math.random() * GAME_HEIGHT, 0));
+                }
+            }
+
             if (enemiesSpawned < enemiesToSpawn) {
                 let spawnRate = Math.max(60, 300 - (wave * 30)); 
                 if (frame % spawnRate === 0) { enemies.push(new Enemy()); enemiesSpawned++; }
@@ -1629,6 +1677,30 @@
         
         defenders.sort((a,b) => a.y - b.y);
         defenders.forEach(d => d.draw());
+
+        // 🔥 메테오 업데이트 및 그리기
+        meteors.forEach((m, i) => {
+            if (!isWaveStarting) m.update();
+            m.draw();
+            if (m.timer <= 0) {
+                // 폭발 처리
+                spawnShockwave(m.x + 50, m.y + 50);
+                spawnParticles(m.x + 50, m.y + 50, 20, '#ff4400');
+                
+                // 데미지 판정
+                defenders.forEach(d => {
+                    if (d.x === m.x && d.y === m.y) {
+                        d.hp -= m.damage;
+                        spawnFloatingText(`-${m.damage}`, d.x+50, d.y, '#ff0000', 24);
+                        if (d.hp <= 0) {
+                            defenders = defenders.filter(u => u !== d);
+                            closeUpgradePanel();
+                        }
+                    }
+                });
+                meteors.splice(i, 1);
+            }
+        });
 
         enemies.forEach((e, i) => {
              e.draw(); 
@@ -1648,7 +1720,6 @@
                     document.querySelector('#overlay h1').innerText = "GAME OVER";
                     document.querySelector('#overlay-msg').innerText = "점수를 저장하고 있습니다...";
                     
-                    // 🔥 게임 오버 시 새로운 팁 표시
                     showRandomTip();
 
                     document.getElementById('overlay').style.display = 'flex';
@@ -1686,7 +1757,6 @@
                 }
             } else if (e.hp <= 0) {
                 if (e.ability === 'explode') {
-                    // 🔥 자폭 데미지 수정 (기본 80 + 5웨이브마다 10증가)
                     let explosionDmg = 80 + (Math.floor(wave / 5) * 10);
                     spawnShockwave(e.x + 50, e.y + 50); 
                     defenders.forEach(d => {
