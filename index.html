@@ -1333,7 +1333,7 @@
             this.atkSpeed = typeData.atkSpeed || 60; // 🔥 공격 속도
 
             // 🔥 3% 증가로 수정 -> 체력 기본 100
-            let baseHp = 100 * Math.pow(0.7, wave - 1);
+            let baseHp = 100 * Math.pow(1, wave - 1);
             // 저주 효과 (체력 증가)
             if (globalBuffs.hpMult_Enemy) baseHp *= globalBuffs.hpMult_Enemy;
             
