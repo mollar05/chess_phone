@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Chess Defense: Detailed Skills</title>
+    <title>Chess Defense: Tips & Waves</title>
     <style>
         /* --- 모바일 최적화 및 기본 설정 --- */
         body {
@@ -13,12 +13,12 @@
             margin: 0;
             padding: 0;
             overflow: hidden;
-            touch-action: none;
+            touch-action: none; /* 터치 제스처 방지 */
             display: flex;
             flex-direction: column;
             height: 100vh;
-            height: 100dvh;
-            user-select: none;
+            height: 100dvh; /* 모바일 브라우저 주소창 대응 */
+            user-select: none; /* 텍스트 선택 방지 */
         }
 
         /* --- 상단 정보창 (HUD) --- */
@@ -28,120 +28,225 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 0 10px;
+            padding: 0 15px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.5);
             z-index: 20;
             position: relative;
         }
 
-        .hud-left, .hud-right {
+        .hud-item {
+            font-size: 15px;
+            font-weight: bold;
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 5px;
         }
 
-        .energy-count { color: #ffd700; font-size: 16px; font-weight: bold; }
-        .sp-count { color: #00ff00; font-size: 16px; font-weight: bold; margin-left: 5px; }
-        .life-display { color: #ff4444; font-size: 16px; font-weight: bold; }
-        .wave-text { color: #00e5ff; font-size: 16px; font-weight: bold; text-shadow: 0 0 5px #00e5ff;}
+        .energy-count { color: #ffd700; font-size: 18px; }
+        .score-display { color: #fff; font-size: 13px; margin-left: 5px; }
+        .life-display { color: #ff4444; font-size: 16px; margin-left: 8px; display: flex; align-items: center; gap: 2px; }
+        .wave-text { color: #00e5ff; font-size: 16px; margin-left: 5px; text-shadow: 0 0 5px #00e5ff;}
         
-        .progress-bar-bg { width: 40px; height: 6px; background: #333; border-radius: 3px; overflow: hidden; }
+        .progress-bar-bg { width: 50px; height: 6px; background: #333; border-radius: 3px; overflow: hidden; margin-left: 8px; }
         .progress-bar-fill { height: 100%; background: #ff4444; width: 0%; transition: width 0.3s; }
 
-        .skill-open-btn {
-            background: #4a4a8a; border: 1px solid #7a7aff; color: white;
-            padding: 5px 12px; border-radius: 15px; font-size: 12px; font-weight: bold;
-            cursor: pointer; animation: pulse 2s infinite;
-        }
-        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(122, 122, 255, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(122, 122, 255, 0); } 100% { box-shadow: 0 0 0 0 rgba(122, 122, 255, 0); } }
-
-        /* --- 게임 화면 --- */
+        /* --- 게임 화면 (Canvas) --- */
         #game-container {
-            flex: 1; display: flex; justify-content: center; align-items: center;
-            background: #2a2a2a; position: relative; overflow: hidden;
-            width: 100%; padding-bottom: 90px; box-sizing: border-box;
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: #2a2a2a;
+            position: relative;
+            overflow: hidden;
+            width: 100%;
+            padding-bottom: 90px; /* 하단 버튼 공간 확보 */
+            box-sizing: border-box;
         }
-        canvas { box-shadow: 0 0 20px rgba(0,0,0,0.5); max-width: 100%; max-height: 100%; aspect-ratio: 900/500; }
 
-        /* --- 팝업 UI --- */
+        canvas {
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            max-width: 100%;
+            max-height: 100%;
+            aspect-ratio: 900/500; /* 비율 유지 */
+        }
+
+        /* --- 팝업 UI 공통 스타일 --- */
         .overlay-base {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0, 0, 0, 0.95); display: none; flex-direction: column;
-            justify-content: center; align-items: center; z-index: 60;
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 60;
         }
 
-        /* 스킬 선택 UI */
-        #skill-selection-modal { background: rgba(15, 15, 20, 0.98); z-index: 70; }
-        .skill-header-row { position: absolute; top: 20px; width: 90%; display: flex; justify-content: space-between; align-items: center; }
-        .skill-header-title { font-size: 24px; color: #00ff00; font-weight: bold; }
-        .skill-close-btn { background: none; border: none; color: #fff; font-size: 32px; cursor: pointer; padding: 10px; }
-        .skill-options-container { display: flex; justify-content: center; gap: 15px; width: 95%; height: 60%; max-height: 400px; }
-        .skill-option-card {
-            background: linear-gradient(135deg, #2b3a42, #1a1a2e); border: 2px solid #445;
-            border-radius: 12px; width: 30%; padding: 15px 5px;
-            display: flex; flex-direction: column; align-items: center; text-align: center;
-            cursor: pointer; box-shadow: 0 5px 15px rgba(0,0,0,0.5); transition: transform 0.2s; position: relative;
-        }
-        .skill-option-card:active { transform: scale(0.95); border-color: #00ff00; background: #2a3a2a; }
-        .skill-opt-icon { font-size: 40px; margin-bottom: 15px; margin-top: 20px;}
-        .skill-opt-name { font-size: 16px; font-weight: bold; color: #fff; margin-bottom: 10px; word-break: keep-all;}
-        .skill-opt-desc { font-size: 12px; color: #ccc; line-height: 1.4; padding: 0 5px; flex: 1;}
-        .skill-opt-type { position: absolute; top: 10px; left: 10px; font-size: 10px; padding: 3px 8px; border-radius: 10px; background: #333; color: #aaa; }
-
-        /* 카드/저주 UI */
+        /* 1. 카드 선택 UI */
         #card-selection h2 { color: #ffd700; margin-bottom: 10px; font-size: 6vw; text-shadow: 0 0 10px #ffd700; }
-        #curse-selection { background: rgba(20, 0, 0, 0.95); }
-        #curse-selection h2 { color: #ff3333; margin-bottom: 10px; font-size: 6vw; text-shadow: 0 0 10px #ff0000; }
-        .cards-container { display: flex; justify-content: center; gap: 2%; width: 96%; height: 55%; }
-        .card { background: linear-gradient(145deg, #2a2a2a, #333); border: 2px solid #555; border-radius: 12px; width: 32%; height: 100%; padding: 8px 4px; display: flex; flex-direction: column; align-items: center; text-align: center; cursor: pointer; transition: transform 0.1s; box-sizing: border-box; }
-        .card:active { transform: scale(0.95); border-color: #ffd700; }
+        .cards-container {
+            display: flex;
+            justify-content: center;
+            gap: 2%;
+            width: 96%;
+            height: 55%;
+        }
+        .card {
+            background: linear-gradient(145deg, #2a2a2a, #333);
+            border: 2px solid #555;
+            border-radius: 12px;
+            width: 32%;
+            height: 100%;
+            padding: 8px 4px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            cursor: pointer;
+            transition: transform 0.1s;
+            box-sizing: border-box;
+        }
+        .card:active { transform: scale(0.95); border-color: #ffd700; background: #3a3a3a; }
+        
         .card-icon { font-size: 8vw; margin: 5px 0; }
         .card-title { font-weight: bold; color: #fff; margin-bottom: 5px; font-size: 3.2vw; white-space: nowrap; }
-        .card-desc { font-size: 2.5vw; color: #ccc; line-height: 1.3; padding: 0 2px; flex: 1; display: flex; align-items: center; justify-content: center; }
+        .card-desc { font-size: 2.5vw; color: #ccc; line-height: 1.3; padding: 0 2px; word-break: keep-all; flex: 1; display: flex; align-items: center; justify-content: center; }
         .card-rare { color: #ffd700; font-size: 2.5vw; margin: 5px 0; border: 1px solid #ffd700; padding: 2px 6px; border-radius: 10px;}
-        .curse-card { background: linear-gradient(145deg, #2a0a0a, #330000); border: 2px solid #550000; }
-        .curse-card .card-rare { color: #ff4444; border-color: #ff4444; }
-        .reroll-btn { margin-top: 15px; padding: 10px 25px; background: #444; border: 1px solid #fff; color: #fff; border-radius: 20px; font-size: 14px; font-weight: bold; cursor: pointer; }
 
-        /* 업그레이드 패널 */
-        #upgrade-panel { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); background: rgba(0, 0, 0, 0.95); border: 2px solid #ffd700; border-radius: 15px; padding: 15px; display: none; flex-direction: column; align-items: center; z-index: 50; width: 70%; max-width: 320px; box-shadow: 0 0 20px rgba(255, 215, 0, 0.3); }
-        .action-btn { padding: 12px; border:none; border-radius:8px; width:100%; margin-top:6px; font-weight:bold; cursor:pointer; font-size: 14px; display: flex; justify-content: space-between; align-items: center;}
+        /* 리롤 버튼 */
+        .reroll-btn {
+            margin-top: 15px;
+            padding: 10px 25px;
+            background: #444;
+            border: 1px solid #fff;
+            color: #fff;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .reroll-btn:active { background: #666; }
+
+        /* 2. 유닛 업그레이드 패널 */
+        #upgrade-panel {
+            position: absolute;
+            bottom: 20px; left: 50%; transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.95);
+            border: 2px solid #ffd700; border-radius: 15px;
+            padding: 15px;
+            display: none;
+            flex-direction: column; align-items: center;
+            z-index: 50; width: 65%; max-width: 300px;
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.3);
+        }
+        .action-btn { padding: 12px; border:none; border-radius:8px; width:100%; margin-top:6px; font-weight:bold; cursor:pointer; font-size: 14px;}
         .btn-upgrade { background:#ffd700; color:#000; }
         .btn-alt { background:#00e5ff; color:#000; }
-        .btn-sell { background: #e74c3c; color: white; justify-content: center;}
-        .btn-close { background:#444; color:#fff; justify-content: center;}
-        
-        .btn-locked { background: #444 !important; color: #888 !important; cursor: not-allowed; }
+        .btn-sell { background: #e74c3c; color: white; }
+        .btn-close { background:#444; color:#fff; }
 
-        /* 웨이브 알림 */
-        #wave-modal { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.9); border: 2px solid #00e5ff; border-radius: 16px; padding: 20px; text-align: center; z-index: 80; display: none; width: 80%; max-width: 350px; box-shadow: 0 0 30px rgba(0, 229, 255, 0.3); animation: fadeIn 0.3s; }
+        /* 3. 웨이브 알림 모달 */
+        #wave-modal {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.9);
+            border: 2px solid #00e5ff;
+            border-radius: 16px;
+            padding: 20px;
+            text-align: center;
+            z-index: 80;
+            display: none;
+            width: 80%; max-width: 350px;
+            box-shadow: 0 0 30px rgba(0, 229, 255, 0.3);
+            animation: fadeIn 0.3s;
+        }
         #wave-modal h2 { margin: 0 0 10px 0; color: #00e5ff; font-size: 24px; }
         .wave-info-row { display: flex; justify-content: space-between; margin: 8px 0; font-size: 16px; border-bottom: 1px solid #444; padding-bottom: 4px;}
         .wave-info-val { color: #ffd700; font-weight: bold; }
+        
         .new-enemy-alert { background: #331111; border: 1px solid #ff4444; padding: 10px; border-radius: 8px; margin-top: 15px; }
         .new-enemy-title { color: #ff4444; font-weight: bold; font-size: 16px; display: block; margin-bottom: 5px;}
         .new-enemy-desc { font-size: 13px; color: #ccc; word-break: keep-all; line-height: 1.4; }
 
-        /* 오버레이 */
-        #overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 100; }
+        /* 저주 선택 UI */
+        #curse-selection { background: rgba(20, 0, 0, 0.95); }
+        #curse-selection h2 { color: #ff3333; margin-bottom: 10px; font-size: 6vw; text-shadow: 0 0 10px #ff0000; }
+        #curse-selection p { font-size: 3.5vw; color: #ffcccc; margin-bottom: 15px; }
+
+        .curse-card {
+            background: linear-gradient(145deg, #2a0a0a, #330000);
+            border: 2px solid #550000;
+        }
+        .curse-card:active { border-color: #ff0000; background: #4a0000; }
+        .curse-card .card-rare { color: #ff4444; border-color: #ff4444; }
+
+        /* 4. 게임 오버 / 메인 화면 */
+        #overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9); display: flex; flex-direction: column;
+            justify-content: center; align-items: center; z-index: 100;
+        }
         .big-btn { padding: 15px 40px; font-size: 22px; background: #ffd700; border: none; border-radius: 30px; font-weight: bold; cursor: pointer; margin-top: 20px; }
-        #rank-info { background: rgba(255,255,255,0.1); padding: 20px; border-radius: 10px; text-align: center; margin-top: 15px; width: 80%; max-width: 300px; border: 1px solid #555; }
+        
+        #rank-info {
+            background: rgba(255,255,255,0.1);
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            margin-top: 15px;
+            width: 80%; max-width: 300px;
+            border: 1px solid #555;
+        }
         .rank-stat { font-size: 16px; color: #ccc; margin: 5px 0; }
         .rank-val { color: #ffd700; font-weight: bold; font-size: 20px; }
+        
         #new-record-form { display: none; margin-top: 15px; text-align: center; animation: popIn 0.5s ease; }
         #player-name-input { padding: 10px; font-size: 16px; border-radius: 5px; border: none; width: 70%; margin-bottom: 10px; text-align: center; }
         .submit-btn { background: #00e5ff; color: #000; padding: 10px 20px; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; }
-        #tip-msg { color: #00e5ff; font-size: 14px; margin-top: 20px; font-style: italic; background: rgba(0, 0, 0, 0.5); padding: 5px 15px; border-radius: 20px; border: 1px solid #00e5ff; text-align: center; width: 80%; word-break: keep-all; }
 
-        /* 하단 유닛 선택 바 */
-        #bottom-bar { height: 90px; background: #1e1e1e; display: flex; justify-content: space-around; align-items: center; padding: 5px; border-top: 2px solid #333; z-index: 20; position: fixed; bottom: 0; left: 0; width: 100%; box-sizing: border-box; padding-bottom: env(safe-area-inset-bottom); }
-        .unit-btn { background: #333; border: 2px solid #444; border-radius: 8px; width: 15%; height: 90%; display: flex; flex-direction: column; justify-content: center; align-items: center; cursor: pointer; position: relative; transition: all 0.2s; }
+        /* 팁 메시지 */
+        #tip-msg {
+            color: #00e5ff;
+            font-size: 14px;
+            margin-top: 20px;
+            font-style: italic;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 5px 15px;
+            border-radius: 20px;
+            border: 1px solid #00e5ff;
+            text-align: center;
+            width: 80%;
+            word-break: keep-all;
+        }
+
+        /* 하단 유닛 선택 바 (고정) */
+        #bottom-bar {
+            height: 90px;
+            background: #1e1e1e;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            padding: 5px;
+            border-top: 2px solid #333;
+            z-index: 20;
+            position: fixed;
+            bottom: 0; left: 0; width: 100%;
+            box-sizing: border-box;
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+        .unit-btn {
+            background: #333; border: 2px solid #444; border-radius: 8px;
+            width: 15%; height: 90%;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            cursor: pointer; position: relative;
+        }
         .unit-btn.selected { border-color: #ffd700; background: #4a4a3a; }
         .unit-btn.disabled { opacity: 0.4; filter: grayscale(100%); }
-        .unit-btn.locked { filter: grayscale(100%) brightness(0.5); cursor: not-allowed; }
-        .unit-btn.locked::after { content: '🔒'; position: absolute; font-size: 24px; top: 50%; left: 50%; transform: translate(-50%, -50%); }
         .unit-cost { font-size: 10px; color: #ffd700; font-weight: bold; margin-top: 2px;}
 
+        /* PC 화면 대응 */
         @media (min-width: 600px) {
             #card-selection h2 { font-size: 30px; }
             .card-icon { font-size: 40px; }
@@ -150,8 +255,6 @@
             .card-rare { font-size: 12px; }
             .cards-container { width: 80%; height: 50%; gap: 20px;}
             .card { width: 150px; height: 220px; }
-            .skill-options-container { width: 70%; gap: 30px; }
-            .skill-option-card { width: 25%; max-width: 200px; height: 300px;}
         }
         
         @keyframes popIn { from {transform: scale(0.5); opacity: 0;} to {transform: scale(1); opacity: 1;} }
@@ -163,7 +266,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, getDocs, serverTimestamp, updateDoc, doc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, getDocs, serverTimestamp, updateDoc, doc, limit, query, orderBy } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // 🔥 Firebase 설정
         const firebaseConfig = {
@@ -196,42 +299,97 @@
             });
         });
 
+        // 랭킹 로직
         window.saveScoreAndCheckRank = async (finalScore) => {
             if (!db) return { rank: '설정 오류', nextScore: '-', nextRankInfo: '', isNewRecord: false };
+
             try {
                 await authReady;
                 const uid = auth.currentUser ? auth.currentUser.uid : 'guest';
                 const colRef = collection(db, 'scores');
+
                 const snapshot = await getDocs(colRef);
                 let allScores = [];
                 snapshot.forEach(d => allScores.push({ ...d.data(), id: d.id }));
+                
                 const tempMe = { score: finalScore, name: "Unknown", id: "temp_me" };
                 allScores.push(tempMe);
                 allScores.sort((a, b) => b.score - a.score);
+
                 const myIndex = allScores.findIndex(s => s.id === "temp_me");
                 const myRank = myIndex + 1;
                 const topPlayer = allScores[0];
+                
                 let nextScore = '-';
                 let nextRankInfo = '최고 기록!';
-                if (myRank === 1) { nextScore = 'New Best!'; nextRankInfo = '1위 달성'; } 
-                else { const prevPlayer = allScores[myIndex - 1]; if (prevPlayer) { nextScore = prevPlayer.score; nextRankInfo = `${myRank - 1}위 점수`; } }
-                if (myRank > 50) { const cutPlayer = allScores[49]; if (cutPlayer) { nextScore = cutPlayer.score; nextRankInfo = '50위 커트라인'; } }
+
+                if (myRank === 1) {
+                    nextScore = 'New Best!';
+                    nextRankInfo = '1위 달성';
+                } else {
+                    const prevPlayer = allScores[myIndex - 1]; 
+                    if (prevPlayer) {
+                        nextScore = prevPlayer.score;
+                        nextRankInfo = `${myRank - 1}위 점수`;
+                    }
+                }
+                
+                if (myRank > 50) {
+                    const cutPlayer = allScores[49]; 
+                    if (cutPlayer) {
+                        nextScore = cutPlayer.score;
+                        nextRankInfo = '50위 커트라인';
+                    }
+                }
+
                 let savedDocId = null;
                 let isNewRecord = (myRank === 1);
-                if (myRank <= 50) { const docRef = await addDoc(colRef, { score: finalScore, name: "Unknown", ts: serverTimestamp(), uid: uid }); savedDocId = docRef.id; }
-                return { rank: myRank > 50 ? "50위 밖" : myRank, topScore: allScores[0].score, topName: allScores[0].name, nextScore: nextScore, nextRankInfo: nextRankInfo, isNewRecord: isNewRecord && (myRank <= 50), docId: savedDocId };
-            } catch (e) { console.error("Ranking Error:", e); return { rank: 'Error', nextScore: '-', isNewRecord: false }; }
+
+                if (myRank <= 50) {
+                    const docRef = await addDoc(colRef, {
+                        score: finalScore,
+                        name: "Unknown",
+                        ts: serverTimestamp(),
+                        uid: uid
+                    });
+                    savedDocId = docRef.id;
+                }
+
+                return {
+                    rank: myRank > 50 ? "50위 밖" : myRank,
+                    topScore: allScores[0].score, 
+                    topName: allScores[0].name,   
+                    nextScore: nextScore,
+                    nextRankInfo: nextRankInfo,
+                    isNewRecord: isNewRecord && (myRank <= 50),
+                    docId: savedDocId
+                };
+
+            } catch (e) {
+                console.error("Ranking System Error:", e);
+                return { rank: 'Error', nextScore: '-', isNewRecord: false };
+            }
         };
 
         window.updatePlayerName = async (docId, newName) => {
             if (!db || !docId) return;
-            try { const docRef = doc(db, 'scores', docId); await updateDoc(docRef, { name: newName }); return true; } catch(e) { return false; }
+            try {
+                const docRef = doc(db, 'scores', docId);
+                await updateDoc(docRef, { name: newName });
+                return true;
+            } catch(e) {
+                console.error("Name Update Error:", e);
+                return false;
+            }
         };
 
         window.submitName = () => {
             const nameInput = document.getElementById('player-name-input');
             const name = nameInput.value.trim();
-            if (!name || name.length > 8) { alert("이름을 1~8글자로 입력해주세요."); return; }
+            if (!name || name.length > 8) {
+                alert("이름을 1~8글자로 입력해주세요.");
+                return;
+            }
             if (window.currentDocId && window.updatePlayerName) {
                 window.updatePlayerName(window.currentDocId, name).then(() => {
                     document.getElementById('res-top-name').innerText = name;
@@ -244,28 +402,17 @@
 <body>
 
     <div id="top-hud">
-        <div class="hud-left">
-            <span>⚡</span><span class="energy-count" id="ui-energy">250</span>
+        <div class="hud-item">
+            <span>⚡</span><span class="energy-count" id="ui-energy">ㅋ</span>
             <span class="score-display">(점수: <span id="ui-score">0</span>)</span>
             <span class="life-display">❤️ <span id="ui-lives">3</span></span>
         </div>
-        <div class="hud-right">
-             <button class="skill-open-btn" onclick="openSkillSelection()">✨ 스킬 (<span id="ui-sp">0</span>)</button>
-             <span class="wave-text" id="ui-wave">Wave 1</span>
-             <div class="progress-bar-bg">
+        <div class="hud-item">
+            <span class="wave-text" id="ui-wave">Wave 1</span>
+            <div class="progress-bar-bg">
                 <div class="progress-bar-fill" id="wave-progress"></div>
             </div>
         </div>
-    </div>
-
-    <!-- 🔥 스킬 선택 UI (로그라이크) -->
-    <div id="skill-selection-modal" class="overlay-base">
-        <div class="skill-header-row">
-            <div class="skill-header-title">✨ 기술 해금</div>
-            <button class="skill-close-btn" onclick="closeSkillSelection()">×</button>
-        </div>
-        <p style="color:#ccc; margin-bottom:20px;">SP를 사용하여 유닛이나 능력을 해금하세요</p>
-        <div class="skill-options-container" id="skill-options-box"></div>
     </div>
 
     <div id="game-container">
@@ -279,7 +426,7 @@
             </div>
             <div class="wave-info-row">
                 <span>현재 자원</span>
-                <span class="wave-info-val" id="wave-total-gold">150 G</span>
+                <span class="wave-info-val" id="wave-total-gold">170 G</span>
             </div>
             <div id="new-enemy-alert" class="new-enemy-alert" style="display:none;">
                 <span class="new-enemy-title">⚠️ 새로운 적 출현!</span>
@@ -296,6 +443,7 @@
             </button>
         </div>
 
+        <!-- 🔥 저주 선택 UI -->
         <div id="curse-selection" class="overlay-base" style="display:none;">
             <h2>☠️ Curse of 10th ☠️</h2>
             <p>시련을 선택해야 다음으로 넘어갑니다.</p>
@@ -306,7 +454,6 @@
             <div id="upgrade-info" style="font-weight:bold; font-size:18px; color:#ffd700; margin-bottom:5px;">Lv.1 폰</div>
             <div id="upgrade-stats" style="color:#ccc; font-size:12px; margin-bottom:5px;">스탯 정보</div>
             
-            <!-- 버튼들은 JS에서 생성됨 -->
             <button class="action-btn btn-upgrade" id="btn-do-upgrade">강화</button>
             <button class="action-btn btn-alt" id="btn-alt-upgrade" style="display:none;">광폭화</button>
             <button class="action-btn btn-sell" id="btn-do-sell" onclick="sellSelectedUnit()">판매</button>
@@ -320,6 +467,7 @@
                 랭킹 진입에 도전하세요!
             </p>
             
+            <!-- 🔥 팁 표시 영역 -->
             <p id="tip-msg">💡 Tip: 시작 기물로는 비숍이 좋습니다.</p>
 
             <div id="rank-info" style="display:none;">
@@ -329,6 +477,7 @@
                 <div class="rank-stat">내 순위</div>
                 <div class="rank-val" id="res-rank" style="color:#00e5ff;">계산 중...</div>
                 
+                <!-- 🔥 목표 점수 UI -->
                 <div class="rank-stat" style="font-size:14px; margin-top:15px; color:#aaa;">
                     🎯 <span id="res-next-rank">목표</span> : 
                     <span id="res-next-score" style="color:#fff;">-</span>
@@ -397,7 +546,7 @@
     let isPlaying = false;
     let isPaused = false;
     let isWaveStarting = false;
-    let energy = 250; 
+    let energy = 170; 
     let score = 0; 
     let lives = 3; 
     let frame = 0;
@@ -409,40 +558,6 @@
     let waveTotalEnemies = 0;
 
     let currentRerollCost = 0;
-
-    // 🔥 스킬 & 해금 시스템
-    let skillPoints = 0;
-    // 초기 해금: 폰, 비숍 (유닛), 특성은 모두 잠김
-    let unlockedUnits = ['pawn', 'bishop']; 
-    let unlockedAbilities = []; // ex: ['pawn_tank', 'knight_fire']
-
-    // 🔥 해금 가능한 목록 (로그라이크 선택지용 Pool) - 세분화됨
-    const UNLOCK_POOL = [
-        { id: 'unlock_king',   type: 'unit', target: 'king',   name: '킹 해금',   icon: '♚', desc: '자원을 생산하는 킹을 배치할 수 있습니다.' },
-        { id: 'unlock_rook',   type: 'unit', target: 'rook',   name: '룩 해금',   icon: '♜', desc: '강력한 원거리 딜러 룩을 배치할 수 있습니다.' },
-        { id: 'unlock_knight', type: 'unit', target: 'knight', name: '나이트 해금', icon: '♞', desc: '범위 공격을 하는 나이트를 배치할 수 있습니다.' },
-        { id: 'unlock_queen',  type: 'unit', target: 'queen',  name: '퀸 해금',    icon: '♛', desc: '최강의 유닛 퀸을 배치할 수 있습니다.' },
-        
-        // 폰 특성
-        { id: 'abil_pawn_tank',    type: 'ability', target: 'pawn_tank',    name: '폰: 수호자',   icon: '🛡️', desc: '체력이 대폭 증가하여 든든한 방패가 됩니다.' },
-        { id: 'abil_pawn_berserk', type: 'ability', target: 'pawn_berserk', name: '폰: 광전사',   icon: '⚔️', desc: '공격 속도가 빨라져 전투에 기여합니다.' },
-        
-        // 비숍 특성
-        { id: 'abil_bishop_rapid', type: 'ability', target: 'bishop_rapid', name: '비숍: 속사',   icon: '⚡', desc: '공격 속도가 매우 빨라집니다.' },
-        { id: 'abil_bishop_power', type: 'ability', target: 'bishop_power', name: '비숍: 마력',   icon: '🔮', desc: '한 방 공격력이 강력해집니다.' },
-        
-        // 룩 특성
-        { id: 'abil_rook_cannon',  type: 'ability', target: 'rook_cannon',  name: '룩: 거포',     icon: '🧨', desc: '공격 속도는 느리지만 파괴적인 한 방을 쏩니다.' },
-        { id: 'abil_rook_vulcan',  type: 'ability', target: 'rook_vulcan',  name: '룩: 속사포',   icon: '🌪️', desc: '기관총처럼 빠르게 적을 공격합니다.' },
-        
-        // 나이트 특성 (신규)
-        { id: 'abil_knight_fire',  type: 'ability', target: 'knight_fire',  name: '나이트: 불',   icon: '🔥', desc: '주변 적들에게 화염 피해를 입힙니다.' },
-        { id: 'abil_knight_ice',   type: 'ability', target: 'knight_ice',   name: '나이트: 얼음', icon: '❄️', desc: '주변 적들을 느리게 만듭니다 (이러다 다 죽어 전개).' },
-
-        // 퀸 특성 (신규)
-        { id: 'abil_queen_fire',   type: 'ability', target: 'queen_fire',   name: '퀸: 화염탄',   icon: '💥', desc: '폭발하는 탄환으로 범위 피해를 줍니다.' },
-        { id: 'abil_queen_ice',    type: 'ability', target: 'queen_ice',    name: '퀸: 얼음탄',   icon: '🧊', desc: '적중 시 적을 얼려 느리게 만듭니다.' }
-    ];
 
     let globalBuffs = { 
         dmgMult: 1.0, spdMult: 1.0, costMult: 1.0, hpMult: 1.0, kingGold: 0,
@@ -458,6 +573,8 @@
     let projectiles = [];
     let particles = [];
     let floatingTexts = [];
+    
+    // 🔥 포격 시스템 변수
     let meteors = [];
 
     window.currentDocId = null;
@@ -467,7 +584,7 @@
         'pawn':   { cost: 50,  hp: 400, dmg: 10,  spd: 60,  upCost: 30,  color: '#aaa',    icon: '♟️', name: '폰' },
         'rook':   { cost: 370, hp: 200, dmg: 30,  spd: 90,  upCost: 120, color: '#4a90e2', icon: '♜', name: '룩' },
         'bishop': { cost: 120, hp: 150, dmg: 40,  spd: 60,  upCost: 40,  color: '#9013fe', icon: '♝', name: '비숍' },
-        'knight': { cost: 500, hp: 300, dmg: 18,  spd: 120, upCost: 200, color: '#7ed321', icon: '♞', name: '나이트' },
+        'knight': { cost: 500, hp: 300, dmg: 18,  spd: 40,  upCost: 200, color: '#7ed321', icon: '♞', name: '나이트' },
         'queen':  { cost: 1500, hp: 500, dmg: 25,  spd: 45,  upCost: 300, color: '#ff00ff', icon: '♛', name: '퀸' }
     };
 
@@ -497,16 +614,18 @@
         { id: 'def_buff', icon: '🛡️', title: '단단한 껍질', desc: '적 방어력(뎀감) +2' }
     ];
 
+    // 🔥 적 종류 재정의 (Wave 조정)
     const ENEMY_TYPES = [
         { minWave: 1,  type: 'normal', name: '병사', desc: '평범한 적입니다.', color: '#e74c3c', hpMult: 1.0, spdMult: 1.0, radius: 35, ability: null, atkSpeed: 60 },
-        { minWave: 5,  type: 'fast',   name: '정찰병', desc: '빠르고 회피 능력이 있습니다.', color: '#f1c40f', hpMult: 0.6, spdMult: 1.5, radius: 25, ability: 'dodge', atkSpeed: 30 },
-        { minWave: 20, type: 'tank',   name: '거인',   desc: '체력이 높고 데미지를 감소시킵니다.', color: '#8e44ad', hpMult: 2.5, spdMult: 0.6, radius: 45, ability: 'armor', atkSpeed: 90 },
+        { minWave: 3,  type: 'fast',   name: '정찰병', desc: '빠르고 회피 능력이 있습니다.', color: '#f1c40f', hpMult: 0.6, spdMult: 1.5, radius: 25, ability: 'dodge', atkSpeed: 30 },
         { minWave: 10, type: 'boss',   name: '장군',   desc: '부하를 소환하며 아군을 기절시킵니다.', color: '#2c3e50', hpMult: 5.0, spdMult: 0.4, radius: 50, ability: 'stun', atkSpeed: 60 },
-        { minWave: 90, type: 'jumper', name: '점퍼',   desc: '아군을 뛰어넘어 후방을 공격합니다.', color: '#00ffff', hpMult: 1.0, spdMult: 1.2, radius: 30, ability: 'jump', atkSpeed: 60 },
-        { minWave: 100, type: 'mage',   name: '마법사', desc: '주변 적을 치유하고 아군을 약화시킵니다.', color: '#9013fe', hpMult: 0.7, spdMult: 0.7, radius: 35, ability: 'magic', atkSpeed: 60 },
-        { minWave: 15, type: 'bomber', name: '자폭병', desc: '죽을 때 강력한 폭발을 일으킵니다.', color: '#ff6600', hpMult: 0.8, spdMult: 1.3, radius: 30, ability: 'explode', atkSpeed: 60 }
+        { minWave: 13, type: 'bomber', name: '자폭병', desc: '죽을 때 강력한 폭발을 일으킵니다.', color: '#ff6600', hpMult: 0.8, spdMult: 1.3, radius: 30, ability: 'explode', atkSpeed: 60 }, 
+        { minWave: 17, type: 'tank',   name: '거인',   desc: '체력이 높고 데미지를 감소시킵니다.', color: '#8e44ad', hpMult: 2.5, spdMult: 0.6, radius: 45, ability: 'armor', atkSpeed: 90 },
+        { minWave: 20, type: 'jumper', name: '점퍼',   desc: '아군을 뛰어넘어 후방을 공격합니다.', color: '#00ffff', hpMult: 1.0, spdMult: 1.2, radius: 30, ability: 'jump', atkSpeed: 60 },
+        { minWave: 25, type: 'mage',   name: '마법사', desc: '주변 적을 치유하거나 아군을 약화시킵니다.', color: '#9013fe', hpMult: 0.7, spdMult: 0.7, radius: 35, ability: 'magic', atkSpeed: 60 }
     ];
 
+    // 🔥 팁 목록 (업데이트됨)
     const TIPS = [
         "💡 Tip: 시작 기물로는 비숍이 좋습니다.",
         "💡 Tip: 자폭병 범위는 보이는 것보다 작습니다.",
@@ -526,7 +645,8 @@
         "💡 Tip: 점퍼는 미완성 몹이다...",
         "💡 Tip: 점퍼는 미완성 몹일까?",
         "💡 Tip: 팁 적기도 힘들다...",
-        "💡 Tip: 팁 쓸걸 추천 받겠습니다."
+        "💡 Tip: 팁 쓸걸 추천 받겠습니다.",
+        "💡 Tip: 정찰병은 30% 확률로 공격을 회피합니다." // 🔥 추가됨
     ];
 
     function showRandomTip() {
@@ -548,15 +668,9 @@
 
     function initGame() {
         defenders = []; enemies = []; projectiles = []; particles = []; floatingTexts = [];
-        meteors = []; 
-        energy = 250; score = 0; lives = 3; 
+        meteors = []; // 🔥 초기화
+        energy = 170; score = 0; lives = 3; 
         frame = 0; isPlaying = true; isPaused = false; isWaveStarting = false;
-        
-        // 🔥 스킬/해금 초기화
-        skillPoints = 0;
-        unlockedUnits = ['pawn', 'bishop']; 
-        unlockedAbilities = []; 
-        
         globalBuffs = { 
             dmgMult: 1.0, spdMult: 1.0, costMult: 1.0, hpMult: 1.0, kingGold: 0,
             enemySpeedMult: 1.0, goldPerKill: 0, rangeMult: 1.0, critChance: 0, sellRefund: 0.5,
@@ -564,80 +678,6 @@
         };
         closeUpgradePanel();
         updateUI();
-    }
-
-    // 🔥 스킬 선택창 열기
-    window.openSkillSelection = () => {
-        if (!isPlaying || isPaused) return; 
-        if (skillPoints < 1) {
-             spawnFloatingText("SP 부족!", GAME_WIDTH/2, GAME_HEIGHT/2, '#ff0000', 20);
-             return;
-        }
-        
-        isPaused = true;
-        renderSkillOptions();
-        document.getElementById('skill-selection-modal').style.display = 'flex';
-    };
-
-    window.closeSkillSelection = () => {
-        document.getElementById('skill-selection-modal').style.display = 'none';
-        isPaused = false;
-    };
-
-    // 🔥 스킬 선택지 랜덤 생성 (로그라이크)
-    function renderSkillOptions() {
-        const container = document.getElementById('skill-options-box');
-        container.innerHTML = '';
-
-        // 해금되지 않은 항목들만 필터링
-        let availablePool = UNLOCK_POOL.filter(item => {
-            if (item.type === 'unit') return !unlockedUnits.includes(item.target);
-            if (item.type === 'ability') return !unlockedAbilities.includes(item.target);
-            return false;
-        });
-
-        if (availablePool.length === 0) {
-            container.innerHTML = "<h3 style='color:#fff'>모든 기술을 습득했습니다!</h3>";
-            return;
-        }
-
-        let picks = [];
-        for (let i = 0; i < 3; i++) {
-            if (availablePool.length === 0) break;
-            const r = Math.floor(Math.random() * availablePool.length);
-            picks.push(availablePool[r]);
-            availablePool.splice(r, 1);
-        }
-
-        picks.forEach(skill => {
-            const el = document.createElement('div');
-            el.className = 'skill-option-card';
-            el.innerHTML = `
-                <div class="skill-opt-type">${skill.type === 'unit' ? 'NEW UNIT' : 'UPGRADE'}</div>
-                <div class="skill-opt-icon">${skill.icon}</div>
-                <div class="skill-opt-name">${skill.name}</div>
-                <div class="skill-opt-desc">${skill.desc}</div>
-                <div style="color:#00ff00; font-size:12px; margin-top:5px;">소모 SP: 1</div>
-            `;
-            el.onclick = () => learnSkill(skill);
-            container.appendChild(el);
-        });
-    }
-
-    function learnSkill(skill) {
-        if (skillPoints < 1) return;
-        skillPoints--;
-        
-        if (skill.type === 'unit') {
-            unlockedUnits.push(skill.target);
-            spawnFloatingText(`${skill.name} 완료!`, GAME_WIDTH/2, GAME_HEIGHT/2, '#00ff00', 30);
-        } else if (skill.type === 'ability') {
-            unlockedAbilities.push(skill.target); // 🔥 구체적인 능력 ID (예: pawn_tank) 저장
-            spawnFloatingText(`${skill.name} 완료!`, GAME_WIDTH/2, GAME_HEIGHT/2, '#00ffff', 30);
-        }
-        
-        closeSkillSelection();
-        updateUI(); 
     }
 
     function startWave(waveNum) {
@@ -704,9 +744,6 @@
 
     function checkWaveClear() {
         if (enemiesKilled >= waveTotalEnemies) {
-             skillPoints++;
-             spawnFloatingText("+1 SP", GAME_WIDTH/2, GAME_HEIGHT/2 - 50, '#00ff00', 30);
-             updateUI();
              showCardSelection();
         }
     }
@@ -740,6 +777,7 @@
              document.getElementById('card-selection').appendChild(btn);
         }
         updateRerollButton();
+        
         document.getElementById('card-selection').style.display = 'flex';
     }
 
@@ -763,6 +801,7 @@
             el.onclick = () => selectCurse(curse.id);
             curseBox.appendChild(el);
         });
+
         document.getElementById('curse-selection').style.display = 'flex';
     }
 
@@ -839,13 +878,11 @@
         const elLives = document.getElementById('ui-lives');
         const elWave = document.getElementById('ui-wave');
         const elProgress = document.getElementById('wave-progress');
-        const elSP = document.getElementById('ui-sp');
 
         if(elEnergy) elEnergy.innerText = Math.floor(energy);
         if(elScore) elScore.innerText = Math.floor(score);
         if(elLives) elLives.innerText = lives;
         if(elWave) elWave.innerText = `Wave ${wave}`;
-        if(elSP) elSP.innerText = skillPoints;
         
         if(elProgress) {
             const progress = Math.min(100, (enemiesKilled / waveTotalEnemies) * 100);
@@ -859,14 +896,7 @@
                 const costDisplay = btn.querySelector('.unit-cost');
                 if (costDisplay) costDisplay.innerText = realCost;
                 
-                if (!unlockedUnits.includes(t)) {
-                    btn.classList.add('locked');
-                    btn.classList.remove('selected');
-                } else {
-                    btn.classList.remove('locked');
-                    if (selectedType === t) btn.classList.add('selected'); else btn.classList.remove('selected');
-                }
-                
+                if (selectedType === t) btn.classList.add('selected'); else btn.classList.remove('selected');
                 if (energy < realCost) btn.classList.add('disabled'); else btn.classList.remove('disabled');
             }
         });
@@ -889,11 +919,6 @@
 
     window.selectUnitType = function(type) {
         if (!isPlaying || isPaused || isWaveStarting) return;
-        if (!unlockedUnits.includes(type)) {
-            spawnFloatingText("🔒 잠김", GAME_WIDTH/2, GAME_HEIGHT - 120, '#ff4444', 20);
-            return;
-        }
-        
         if (selectedType === type) selectedType = null;
         else selectedType = type;
         closeUpgradePanel();
@@ -936,7 +961,6 @@
     function openUpgradePanel(unit) {
         focusedUnit = unit;
         const panel = document.getElementById('upgrade-panel');
-        
         const nextCost = unit.getUpgradeCost();
         const sellPrice = Math.floor(UNITS[unit.type].cost * globalBuffs.sellRefund);
 
@@ -953,75 +977,92 @@
         const btnUp = document.getElementById('btn-do-upgrade');
         const btnAlt = document.getElementById('btn-alt-upgrade');
 
-        // 🔥 버튼 설정 함수 호출 (해금된 것만 표시)
-        setupUpgradeButtons(unit, btnUp, btnAlt, nextCost);
+        // 🔥 폰 선택형 업그레이드 UI
+        if (unit.type === 'pawn') {
+            if (unit.level === 1) {
+                btnUp.style.display = 'block';
+                btnUp.innerText = `수호자 (체력+20%) - ${nextCost}G`;
+                btnUp.onclick = () => upgradeSelectedUnit('tank');
+
+                btnAlt.style.display = 'block';
+                btnAlt.innerText = `광전사 (공속+15%) - ${nextCost}G`;
+                btnAlt.onclick = () => upgradeSelectedUnit('berserk');
+            } else {
+                btnAlt.style.display = 'none';
+                if (unit.upgradePath === 'tank') {
+                    btnUp.style.display = 'block';
+                    btnUp.innerText = `수호자 강화 - ${nextCost}G`;
+                    btnUp.onclick = () => upgradeSelectedUnit('tank');
+                } else if (unit.upgradePath === 'berserk') {
+                    btnUp.style.display = 'block';
+                    btnUp.innerText = `광전사 강화 - ${nextCost}G`;
+                    btnUp.onclick = () => upgradeSelectedUnit('berserk');
+                }
+            }
+        } 
+        // 🔥 비숍 선택형 업그레이드 UI 추가
+        else if (unit.type === 'bishop') {
+            if (unit.level === 1) {
+                btnUp.style.display = 'block';
+                btnUp.innerText = `속사 (공속+40% / 뎀-25%) - ${nextCost}G`;
+                btnUp.onclick = () => upgradeSelectedUnit('rapid');
+
+                btnAlt.style.display = 'block';
+                btnAlt.innerText = `마력 (뎀+35% / 공속-25%) - ${nextCost}G`; // 수치 조정 반영
+                btnAlt.onclick = () => upgradeSelectedUnit('power');
+            } else {
+                btnAlt.style.display = 'none';
+                if (unit.upgradePath === 'rapid') {
+                    btnUp.style.display = 'block';
+                    btnUp.innerText = `속사 강화 - ${nextCost}G`;
+                    btnUp.onclick = () => upgradeSelectedUnit('rapid');
+                } else if (unit.upgradePath === 'power') {
+                    btnUp.style.display = 'block';
+                    btnUp.innerText = `마력 강화 - ${nextCost}G`;
+                    btnUp.onclick = () => upgradeSelectedUnit('power');
+                }
+            }
+        }
+        // 🔥 룩 선택형 업그레이드 UI 추가
+        else if (unit.type === 'rook') {
+             if (unit.level === 1) {
+                btnUp.style.display = 'block';
+                btnUp.innerText = `거포 (뎀+30% / 공속-50%) - ${nextCost}G`;
+                btnUp.onclick = () => upgradeSelectedUnit('cannon');
+
+                btnAlt.style.display = 'block';
+                btnAlt.innerText = `속사포 (공속+60% / 뎀-60%) - ${nextCost}G`;
+                btnAlt.onclick = () => upgradeSelectedUnit('vulcan');
+             } else {
+                btnAlt.style.display = 'none';
+                if (unit.upgradePath === 'cannon') {
+                    btnUp.style.display = 'block';
+                    btnUp.innerText = `거포 강화 - ${nextCost}G`;
+                    btnUp.onclick = () => upgradeSelectedUnit('cannon');
+                } else if (unit.upgradePath === 'vulcan') {
+                    btnUp.style.display = 'block';
+                    btnUp.innerText = `속사포 강화 - ${nextCost}G`;
+                    btnUp.onclick = () => upgradeSelectedUnit('vulcan');
+                }
+             }
+        }
+        else {
+            btnUp.style.display = 'block';
+            btnUp.innerText = `강화 (${nextCost}G)`;
+            btnUp.onclick = () => upgradeSelectedUnit('normal');
+            btnAlt.style.display = 'none';
+        }
+        
+        btnUp.style.opacity = (energy < nextCost) ? 0.5 : 1.0;
+        if(btnAlt.style.display !== 'none') btnAlt.style.opacity = (energy < nextCost) ? 0.5 : 1.0;
         
         document.getElementById('btn-do-sell').innerText = `판매 (+${sellPrice}G)`;
         panel.style.display = 'flex';
     }
 
-    function setupUpgradeButtons(unit, btnUp, btnAlt, cost) {
-        // 기본적으로 다 숨김
-        btnUp.style.display = 'none';
-        btnAlt.style.display = 'none';
-
-        // 비용 체크 (스타일링)
-        const canAfford = energy >= cost;
-
-        // 공통 버튼 세팅 함수
-        const configBtn = (btn, text, handler, isLocked = false) => {
-            btn.style.display = 'block';
-            btn.innerText = isLocked ? "🔒 미해금" : `${text} (${cost}G)`;
-            btn.onclick = isLocked ? () => spawnFloatingText("🔒 스킬 해금 필요!", GAME_WIDTH/2, GAME_HEIGHT/2, '#ff4444', 20) : handler;
-            btn.style.opacity = (canAfford && !isLocked) ? 1.0 : 0.5;
-            if(isLocked) btn.classList.add('btn-locked'); else btn.classList.remove('btn-locked');
-        };
-
-        // 레벨 1 -> 2 전직 로직
-        if (unit.level === 1) {
-            if (unit.type === 'pawn') {
-                const lock1 = !unlockedAbilities.includes('pawn_tank');
-                const lock2 = !unlockedAbilities.includes('pawn_berserk');
-                configBtn(btnUp, '수호자 (체력+20%)', () => upgradeSelectedUnit('tank'), lock1);
-                configBtn(btnAlt, '광전사 (공속+15%)', () => upgradeSelectedUnit('berserk'), lock2);
-            } 
-            else if (unit.type === 'bishop') {
-                const lock1 = !unlockedAbilities.includes('bishop_rapid');
-                const lock2 = !unlockedAbilities.includes('bishop_power');
-                configBtn(btnUp, '속사 (공속+40%)', () => upgradeSelectedUnit('rapid'), lock1);
-                configBtn(btnAlt, '마력 (뎀+35%)', () => upgradeSelectedUnit('power'), lock2);
-            }
-            else if (unit.type === 'rook') {
-                const lock1 = !unlockedAbilities.includes('rook_cannon');
-                const lock2 = !unlockedAbilities.includes('rook_vulcan');
-                configBtn(btnUp, '거포 (뎀+30%)', () => upgradeSelectedUnit('cannon'), lock1);
-                configBtn(btnAlt, '속사포 (공속+60%)', () => upgradeSelectedUnit('vulcan'), lock2);
-            }
-            else if (unit.type === 'knight') {
-                const lock1 = !unlockedAbilities.includes('knight_fire');
-                const lock2 = !unlockedAbilities.includes('knight_ice');
-                configBtn(btnUp, '불 영역전개', () => upgradeSelectedUnit('fire'), lock1);
-                configBtn(btnAlt, '얼음 영역전개', () => upgradeSelectedUnit('ice'), lock2);
-            }
-            else if (unit.type === 'queen') {
-                const lock1 = !unlockedAbilities.includes('queen_fire');
-                const lock2 = !unlockedAbilities.includes('queen_ice');
-                configBtn(btnUp, '화염탄', () => upgradeSelectedUnit('fire'), lock1);
-                configBtn(btnAlt, '얼음탄', () => upgradeSelectedUnit('ice'), lock2);
-            }
-            else {
-                // 킹 등 일반 유닛
-                configBtn(btnUp, '강화', () => upgradeSelectedUnit('normal'));
-            }
-        } 
-        // 레벨 2 이상 (강화)
-        else {
-             configBtn(btnUp, '강화', () => upgradeSelectedUnit(unit.upgradePath || 'normal'));
-        }
-    }
-
     window.closeUpgradePanel = () => { document.getElementById('upgrade-panel').style.display = 'none'; focusedUnit = null; };
     
+    // 🔥 업그레이드 함수
     window.upgradeSelectedUnit = (mode) => {
         if (!focusedUnit) return;
         const cost = focusedUnit.getUpgradeCost();
@@ -1031,9 +1072,12 @@
             spawnParticles(focusedUnit.x+50, focusedUnit.y+50, 20, '#fff');
             
             let txt = "LEVEL UP!";
-            if (mode === 'fire') txt = "FIRE!";
-            if (mode === 'ice') txt = "ICE!";
-            // ... (기타 텍스트 생략)
+            if (mode === 'berserk') txt = "BERSERK!";
+            if (mode === 'tank') txt = "GUARDIAN!";
+            if (mode === 'rapid') txt = "RAPID!";
+            if (mode === 'power') txt = "POWER!";
+            if (mode === 'cannon') txt = "CANNON!";
+            if (mode === 'vulcan') txt = "VULCAN!";
             spawnFloatingText(txt, focusedUnit.x+50, focusedUnit.y);
             
             openUpgradePanel(focusedUnit); updateUI();
@@ -1064,11 +1108,14 @@
             this.level = 1; this.baseStats = UNITS[type];
             this.color = this.baseStats.color; this.icon = this.baseStats.icon;
             
+            // 초기화
             this.extraHpMult = 1.0; 
             this.extraSpdMult = 1.0;
             this.extraDmgMult = 1.0; 
             this.upgradePath = null; 
             this.stunTimer = 0;
+            
+            // 🔥 디버프 변수 추가 (마법사 적 대비)
             this.weakened = false;
 
             this.applyBuffs(); 
@@ -1078,6 +1125,7 @@
 
         applyBuffs() {
             const lvlMult = Math.pow(1.2, this.level - 1);
+            
             let finalHpMult = globalBuffs.hpMult * this.extraHpMult;
             let finalSpdMult = globalBuffs.spdMult * this.extraSpdMult;
             let finalDmgMult = globalBuffs.dmgMult * this.extraDmgMult;
@@ -1099,30 +1147,34 @@
         levelUp(mode) {
             this.level++;
             
-            // 기존 폰, 비숍, 룩 로직 유지... (생략)
             if (this.type === 'pawn') {
                 if (this.level === 2 && mode) this.upgradePath = mode;
-                if (this.upgradePath === 'berserk') { this.extraHpMult *= 0.9; this.extraSpdMult *= 1.15; }
-                else if (this.upgradePath === 'tank') { this.extraHpMult *= 1.2; }
+                
+                if (this.upgradePath === 'berserk') {
+                    this.extraHpMult *= 0.9; // 체력 감소
+                    this.extraSpdMult *= 1.15; // 공속 증가
+                } else if (this.upgradePath === 'tank') {
+                    this.extraHpMult *= 1.2; // 체력 증가
+                }
             }
             else if (this.type === 'bishop') {
                 if (this.level === 2 && mode) this.upgradePath = mode;
-                if (this.upgradePath === 'rapid') { this.extraDmgMult *= 0.75; this.extraSpdMult *= 1.40; }
-                else if (this.upgradePath === 'power') { this.extraDmgMult *= 1.35; this.extraSpdMult *= 0.75; }
+
+                if (this.upgradePath === 'rapid') {
+                    this.extraDmgMult *= 0.75; // 뎀감 25%
+                    this.extraSpdMult *= 1.40; // 공속증 40%
+                } else if (this.upgradePath === 'power') {
+                    this.extraDmgMult *= 1.35; // 🔥 데미지 35% 증가
+                    this.extraSpdMult *= 0.75; // 🔥 공속 25% 감소
+                }
             }
             else if (this.type === 'rook') {
                 if (this.level === 2 && mode) this.upgradePath = mode;
-                if (this.upgradePath === 'cannon') { this.extraDmgMult *= 1.3; this.extraSpdMult *= 0.5; }
-                else if (this.upgradePath === 'vulcan') { this.extraDmgMult *= 0.4; this.extraSpdMult *= 1.6; }
-            }
-            // 🔥 나이트 로직
-            else if (this.type === 'knight') {
-                if (this.level === 2 && mode) this.upgradePath = mode;
-                // 나이트는 스탯 변경보다 공격 방식이 바뀜 (Act에서 처리)
-            }
-            // 🔥 퀸 로직
-            else if (this.type === 'queen') {
-                if (this.level === 2 && mode) this.upgradePath = mode;
+                if (this.upgradePath === 'cannon') {
+                    this.extraDmgMult *= 1.3; this.extraSpdMult *= 0.5; 
+                } else if (this.upgradePath === 'vulcan') {
+                    this.extraDmgMult *= 0.4; this.extraSpdMult *= 1.6; 
+                }
             }
             
             this.applyBuffs(); 
@@ -1137,61 +1189,52 @@
             this.timer++; if (this.timer % this.cd === 0) this.act();
         }
 
-        weaken() { this.weakened = true; }
+        // 🔥 약화(디버프) 적용 메서드
+        weaken() {
+            this.weakened = true;
+        }
 
         act() {
             const cx = this.x + 50, cy = this.y + 50;
-            // 킹 로직 (생략)
-            if (this.type === 'king') { energy += this.damage; score += this.damage; spawnFloatingText(`+${this.damage.toFixed(1)}`, cx, this.y, '#ffd700'); updateUI(); return; }
+            if (this.type === 'king') {
+                energy += this.damage; 
+                score += this.damage; 
+                spawnFloatingText(`+${this.damage.toFixed(1)}`, cx, this.y, '#ffd700'); updateUI(); return;
+            }
             
             let finalDmg = this.damage;
             let isCrit = false;
-            if (Math.random() < globalBuffs.critChance) { finalDmg *= 2; isCrit = true; }
-            if (this.weakened) { finalDmg *= 0.5; this.weakened = false; spawnFloatingText("Weak", this.x+50, this.y-20, '#cc00ff', 12); }
+            if (Math.random() < globalBuffs.critChance) {
+                finalDmg *= 2;
+                isCrit = true;
+            }
+
+            // 🔥 약화 상태면 데미지 50% 감소
+            if (this.weakened) {
+                finalDmg *= 0.5;
+                this.weakened = false; // 1회 적용 후 해제
+                spawnFloatingText("Weak", this.x+50, this.y-20, '#cc00ff', 12);
+            }
 
             if (this.type === 'knight') { 
                  let range = 330 * globalBuffs.rangeMult;
-                 // 🔥 나이트 영역 전개
-                 if (this.upgradePath === 'fire') {
-                     // 화염: 주변 적 강한 데미지
-                     spawnShockwave(cx, cy, '#ff4400'); // 빨간 파동
-                     enemies.forEach(e => {
-                        if (Math.hypot((e.x+50)-cx, (e.y+50)-cy) < range) {
-                            e.takeDamage(finalDmg * 1.5, isCrit, this.type); // 데미지 1.5배
-                        }
-                    });
-                 } else if (this.upgradePath === 'ice') {
-                     // 얼음: 데미지 + 슬로우
-                     spawnShockwave(cx, cy, '#00ffff'); // 파란 파동
-                     enemies.forEach(e => {
-                        if (Math.hypot((e.x+50)-cx, (e.y+50)-cy) < range) {
-                            e.takeDamage(finalDmg, isCrit, this.type);
-                            e.slowDown(); // 슬로우 적용
-                        }
-                    });
-                 } else {
-                     // 기본 공격
-                     let hit = false;
-                     enemies.forEach(e => {
-                        if (Math.hypot((e.x+50)-cx, (e.y+50)-cy) < range) {
-                            e.takeDamage(finalDmg, isCrit, this.type);
-                            spawnParticles(e.x+50, e.y+50, 2, '#fff');
-                            hit = true;
-                        }
-                    });
-                    if(hit) this.effect = true;
-                 }
-            } else if (this.type === 'queen') {
-                 // 🔥 퀸 탄환 속성 부여
-                 let pType = this.upgradePath === 'fire' ? 'fire' : (this.upgradePath === 'ice' ? 'ice' : 'normal');
-                 projectiles.push(new Projectile(cx, cy, finalDmg, 0, this.color, isCrit, this.type, pType));
-                 projectiles.push(new Projectile(cx, cy, finalDmg, -0.6, this.color, isCrit, this.type, pType));
-                 projectiles.push(new Projectile(cx, cy, finalDmg, 0.6, this.color, isCrit, this.type, pType));
+                 let hit = false;
+                 enemies.forEach(e => {
+                    if (Math.hypot((e.x+50)-cx, (e.y+50)-cy) < range) {
+                        e.takeDamage(finalDmg, isCrit, this.type);
+                        spawnParticles(e.x+50, e.y+50, 2, '#fff');
+                        hit = true;
+                    }
+                });
+                if(hit) this.effect = true;
             } else if (this.type === 'bishop') {
                  projectiles.push(new Projectile(cx, cy, finalDmg, -0.6, this.color, isCrit, this.type));
                  projectiles.push(new Projectile(cx, cy, finalDmg, 0.6, this.color, isCrit, this.type));
+            } else if (this.type === 'queen') {
+                 projectiles.push(new Projectile(cx, cy, finalDmg, 0, this.color, isCrit, this.type));
+                 projectiles.push(new Projectile(cx, cy, finalDmg, -0.6, this.color, isCrit, this.type));
+                 projectiles.push(new Projectile(cx, cy, finalDmg, 0.6, this.color, isCrit, this.type));
             } else { 
-                // Pawn, Rook
                 let range = (this.type === 'pawn') ? (180 * globalBuffs.rangeMult) : 900;
                 if (enemies.some(e => e.y === this.y && e.x > this.x && e.x < this.x + range)) {
                     projectiles.push(new Projectile(cx, cy, finalDmg, 0, this.color, isCrit, this.type));
@@ -1203,20 +1246,19 @@
             ctx.fillStyle = '#333'; ctx.fillRect(this.x+5, this.y+5, 90, 90);
             ctx.fillStyle = this.color; ctx.font = '50px Arial'; ctx.textAlign = 'center'; ctx.fillText(this.icon, this.x+50, this.y+65);
             
-            // 직업 아이콘
+            // 🔥 직업 아이콘
             if (this.upgradePath === 'tank') ctx.fillText('🛡️', this.x+20, this.y+30);
             if (this.upgradePath === 'berserk') ctx.fillText('⚔️', this.x+20, this.y+30);
             if (this.upgradePath === 'rapid') ctx.fillText('⚡', this.x+20, this.y+30);
             if (this.upgradePath === 'power') ctx.fillText('🔮', this.x+20, this.y+30);
             if (this.upgradePath === 'cannon') ctx.fillText('🧨', this.x+20, this.y+30);
             if (this.upgradePath === 'vulcan') ctx.fillText('🌪️', this.x+20, this.y+30);
-            if (this.upgradePath === 'fire') ctx.fillText('🔥', this.x+20, this.y+30);
-            if (this.upgradePath === 'ice') ctx.fillText('❄️', this.x+20, this.y+30);
 
             if (this.stunTimer > 0) {
                 ctx.font = '30px Arial'; ctx.fillText('💫', this.x+50, this.y+40);
             }
 
+            // 🔥 약화 상태 표시 (보라색 오라)
             if (this.weakened) {
                 ctx.strokeStyle = '#9013fe'; ctx.lineWidth = 3; 
                 ctx.strokeRect(this.x+5, this.y+5, 90, 90);
@@ -1235,29 +1277,44 @@
         }
     }
 
-    // ... Enemy, Projectile, etc. (Existing classes need minor updates for new effects)
-    
-    // 🔥 Projectile 업데이트 (속성 추가)
-    class Projectile {
-        constructor(x, y, dmg, dy, color, isCrit, sourceType, element = 'normal') { 
-            this.x = x; this.y = y; this.dmg = dmg; this.dy = dy; this.color = color; 
-            this.speed = 10; this.isCrit = isCrit;
-            this.sourceType = sourceType;
-            this.element = element; // fire, ice, normal
+    // 🔥 Meteor Class 추가
+    class Meteor {
+        constructor(x, y, damage) {
+            this.x = x;
+            this.y = y;
+            this.damage = damage;
+            this.timer = 180; // 3초 (60fps 기준)
         }
-        update() { this.x += this.speed; this.y += this.dy * this.speed; }
-        draw() { 
-            ctx.fillStyle = this.element === 'fire' ? '#ff4400' : (this.element === 'ice' ? '#00ffff' : (this.isCrit ? '#fff' : this.color)); 
-            ctx.beginPath(); 
-            ctx.arc(this.x, this.y, this.isCrit ? 10 : 8, 0, Math.PI*2); 
-            ctx.fill(); 
+
+        update() {
+            this.timer--;
+        }
+
+        draw() {
+            // 경고 표시 (점점 작아지는 원)
+            if (this.timer > 0) {
+                let ratio = this.timer / 180;
+                ctx.strokeStyle = `rgba(255, 0, 0, ${0.5 + (1-ratio)*0.5})`;
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.arc(this.x + 50, this.y + 50, 45 * ratio, 0, Math.PI*2);
+                ctx.stroke();
+
+                ctx.fillStyle = `rgba(255, 0, 0, 0.2)`;
+                ctx.beginPath();
+                ctx.arc(this.x + 50, this.y + 50, 45, 0, Math.PI*2);
+                ctx.fill();
+
+                // 텍스트 표시
+                ctx.fillStyle = '#fff';
+                ctx.font = '14px Arial';
+                ctx.fillText((this.timer/60).toFixed(1), this.x + 50, this.y + 50);
+            }
         }
     }
 
     class Enemy {
-        // ... (생성자 등 기존 코드)
         constructor(spawnX, spawnY, forcedType) {
-            // ... (기존 초기화)
             this.y = (spawnY !== undefined) ? spawnY : Math.floor(Math.random() * ROWS) * CELL_SIZE;
             this.x = (spawnX !== undefined) ? spawnX : GAME_WIDTH;
             
@@ -1273,41 +1330,52 @@
             this.color = typeData.color;
             this.radius = typeData.radius;
             this.ability = typeData.ability;
-            this.atkSpeed = typeData.atkSpeed || 60; 
+            this.atkSpeed = typeData.atkSpeed || 60; // 🔥 공격 속도
 
-            let baseHp = 100 * Math.pow(1.015, wave - 1);
-            baseHp *= Math.pow(1.13, Math.floor((wave - 1) / 10));
+            // 🔥 3% 증가로 수정 -> 체력 기본 100
+            let baseHp = 100 * Math.pow(1, wave - 1);
+            // 저주 효과 (체력 증가)
             if (globalBuffs.hpMult_Enemy) baseHp *= globalBuffs.hpMult_Enemy;
-            if (wave % 10 === 0 && this.type !== 'normal') baseHp *= 5;
+            
+            // 🔥 보스 체력 보정 (웨이브 10, 20...)
+            if (wave % 10 === 0 && this.type !== 'normal') {
+                baseHp *= 5; // 보스는 5배 체력
+            }
 
             this.hp = baseHp * typeData.hpMult;
             this.maxHp = this.hp;
 
+            // 🔥 0.001 증가로 수정
             let baseSpeed = Math.random() * 0.4 + 0.4 + (wave * 0.001);
             this.speed = baseSpeed * typeData.spdMult;
             this.moveSpeed = this.speed;
             
-            this.damage = 10 + (wave * 5);
-            if (this.type === 'bomber') this.damage = 1;
-            if (this.type === 'fast') this.damage = 10 + (wave * 5); 
+            // 🔥 적 공격력 2 증가
+            this.damage = 10 + (wave * 2);
+            
+            // 🔥 자폭병 공격력은 1로 고정
+            if (this.type === 'bomber') {
+                this.damage = 1;
+            }
+            
+            // 🔥 정찰병 공격력 고정 (일반 병사와 동일하게)
+            if (this.type === 'fast') {
+                this.damage = (10 * 2 / 3) + (wave * 0.01); 
+            }
             
             this.skillTimer = 0;
             this.isSummoning = false;
-            this.hasJumped = false; 
-            this.attackCooldown = 0; 
-            
-            // 🔥 상태이상 변수
-            this.slowTimer = 0; 
+            this.hasJumped = false; // 🔥 점퍼용 플래그
+            this.attackCooldown = 0; // 🔥 개별 공격 쿨타임
         }
 
         update() {
             if (isWaveStarting) return; 
 
-            // ... (기존 마법사, 점퍼 로직 유지)
-            // ... (기존 소환, 스턴 로직 유지)
-             if (this.ability === 'magic') {
+            // 🔥 마법사 로직 (3초마다)
+            if (this.ability === 'magic') {
                 this.skillTimer++;
-                if (this.skillTimer > 180) { 
+                if (this.skillTimer > 180) { // 3초
                     this.skillTimer = 0;
                     this.castMagic();
                 }
@@ -1323,6 +1391,8 @@
                 return; 
             }
 
+            this.moveSpeed = this.speed * globalBuffs.enemySpeedMult;
+            
             if (this.ability === 'stun') {
                 this.skillTimer++;
                 if (this.skillTimer > 600) {
@@ -1331,15 +1401,6 @@
                     spawnFloatingText("Summon!", this.x + 50, this.y, '#ffffff', 20);
                 }
             } 
-
-            // 🔥 슬로우 로직 적용
-            let currentSpeed = this.speed * globalBuffs.enemySpeedMult;
-            if (this.slowTimer > 0) {
-                this.slowTimer--;
-                currentSpeed *= 0.5; // 50% 감속
-            }
-            this.moveSpeed = currentSpeed;
-
 
             // 🔥 공격 쿨타임 감소
             if (this.attackCooldown > 0) this.attackCooldown--;
@@ -1350,20 +1411,23 @@
                     
                     // 🔥 점퍼 로직: 충돌 시 1회 점프
                     if (this.ability === 'jump' && !this.hasJumped) {
-                        spawnParticles(this.x+50, this.y+50, 10, '#00ffff'); 
-                        this.x -= CELL_SIZE * 1.5; 
+                        spawnParticles(this.x+50, this.y+50, 10, '#00ffff'); // 사라짐 이펙트
+                        this.x -= CELL_SIZE * 1.5; // 1.5칸 점프
                         this.hasJumped = true;
-                        spawnParticles(this.x+50, this.y+50, 10, '#00ffff'); 
+                        spawnParticles(this.x+50, this.y+50, 10, '#00ffff'); // 나타남 이펙트
                         spawnFloatingText("Jump!", this.x+50, this.y, '#00ffff', 16);
+                        
+                        // 점프 후 0.5초(30프레임) 딜레이 부여 (무적 시간 방지)
                         this.attackCooldown = 30;
                         return; 
                     }
 
                     this.moveSpeed = 0; 
                     
+                    // 🔥 개별 공격 쿨타임 적용
                     if (this.attackCooldown <= 0) {
                         d.hp -= this.damage;
-                        this.attackCooldown = this.atkSpeed; 
+                        this.attackCooldown = this.atkSpeed; // 쿨타임 초기화
                     }
                     
                     if (d.hp <= 0) { defenders = defenders.filter(u => u !== d); closeUpgradePanel(); }
@@ -1372,36 +1436,13 @@
             this.x -= this.moveSpeed;
         }
 
-        // ... (나머지 메서드 동일)
-        // 🔥 슬로우 적용 메서드
-        slowDown() {
-            this.slowTimer = 60; // 1초간 슬로우
-        }
-        
-        // ... (takeDamage, draw 등)
-        takeDamage(amount, isCrit, sourceType) { 
-            if (this.ability === 'dodge' && Math.random() < 0.3) {
-                spawnFloatingText("Miss", this.x+50, this.y, '#ccc', 14);
-                return;
-            }
-            if (this.ability === 'armor') {
-                amount = Math.max(1, amount - 10);
-                if (Math.random() < 0.3) spawnFloatingText("Block", this.x+50, this.y-20, '#888', 12);
-            }
-
-            if (globalBuffs.enemyDefense > 0) {
-                amount = Math.max(1, amount - globalBuffs.enemyDefense);
-            }
-
-            this.hp -= amount; 
-            spawnFloatingText(Math.floor(amount), this.x+50, this.y, isCrit ? '#ff00ff' : '#ff4444', isCrit ? 24 : 18); 
-            
-            if (this.hp <= 0) this.killedBy = sourceType;
-        }
-
+        // 🔥 마법사 스킬 (힐 & 약화 중 하나만)
         castMagic() {
             spawnParticles(this.x + 50, this.y + 50, 15, '#9013fe');
+            
+            // 50% 확률로 힐 또는 약화 (하나만)
             if (Math.random() < 0.5) {
+                // 1. 주변 적 힐 (반경 200)
                 let healed = false;
                 enemies.forEach(e => {
                     if (e !== this && Math.hypot((e.x - this.x), (e.y - this.y)) < 200) {
@@ -1413,6 +1454,7 @@
                 });
                 if(healed) spawnFloatingText("Heal!", this.x + 50, this.y, '#00ff00', 14);
             } else {
+                // 2. 전방 아군 약화 (반경 300)
                 let cursed = false;
                 defenders.forEach(d => {
                     if (Math.hypot((d.x - this.x), (d.y - this.y)) < 300) {
@@ -1434,6 +1476,7 @@
                 { x: 0, y: CELL_SIZE }
             ];
 
+            // 장군 소환: 자신(boss)을 제외한 타입만 소환
             const possibleMinions = ENEMY_TYPES.filter(e => e.type !== 'boss' && wave >= e.minWave);
             const minionTypeData = possibleMinions.length > 0 
                 ? possibleMinions[Math.floor(Math.random() * possibleMinions.length)]
@@ -1446,48 +1489,145 @@
                 if (sy >= 0 && sy < GAME_HEIGHT && sx > 0) {
                     enemies.push(new Enemy(sx, sy, minionTypeData.type));
                     spawnParticles(sx + 50, sy + 50, 10, minionTypeData.color);
+                    
                     waveTotalEnemies++;
                     updateUI(); 
                 }
             });
         }
         
+        takeDamage(amount, isCrit, sourceType) { 
+            if (this.ability === 'dodge' && Math.random() < 0.3) {
+                spawnFloatingText("Miss", this.x+50, this.y, '#ccc', 14);
+                return;
+            }
+            if (this.ability === 'armor') {
+                amount = Math.max(1, amount - 10);
+                if (Math.random() < 0.3) spawnFloatingText("Block", this.x+50, this.y-20, '#888', 12);
+            }
+
+            // 🔥 저주 효과 (적 방어력)
+            if (globalBuffs.enemyDefense > 0) {
+                amount = Math.max(1, amount - globalBuffs.enemyDefense);
+            }
+
+            this.hp -= amount; 
+            spawnFloatingText(Math.floor(amount), this.x+50, this.y, isCrit ? '#ff00ff' : '#ff4444', isCrit ? 24 : 18); 
+            
+            if (this.hp <= 0) this.killedBy = sourceType;
+        }
+        
         draw() {
             ctx.fillStyle = this.color; 
-            // ... (기존 draw 로직)
-            // 🔥 점퍼, 마법사, 기타 외형 그리기 (이전 코드에서 가져옴)
+            
+            // 🔥 점퍼와 마법사만 특수 외형 적용
             if (this.type === 'jumper') {
-                ctx.beginPath(); ctx.arc(this.x+50, this.y+50, this.radius, 0, Math.PI*2); ctx.fill();
-                ctx.strokeStyle = '#fff'; ctx.lineWidth = 4; ctx.beginPath();
-                ctx.moveTo(this.x+40, this.y+70); ctx.lineTo(this.x+30, this.y+90);
-                ctx.moveTo(this.x+60, this.y+70); ctx.lineTo(this.x+70, this.y+90); ctx.stroke();
-            } else if (this.type === 'mage') {
-                ctx.beginPath(); ctx.arc(this.x+50, this.y+50, this.radius, 0, Math.PI*2); ctx.fill();
-                ctx.font = '24px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#fff'; ctx.fillText('🔮', this.x+50, this.y+50);
-            } else {
-                ctx.beginPath(); ctx.arc(this.x+50, this.y+50, this.radius, 0, Math.PI*2); ctx.fill();
-                ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(this.x+35, this.y+45, 8, 0, Math.PI*2); ctx.arc(this.x+65, this.y+45, 8, 0, Math.PI*2); ctx.fill();
+                // 점퍼: 원 + 다리
+                ctx.beginPath(); 
+                ctx.arc(this.x+50, this.y+50, this.radius, 0, Math.PI*2); 
+                ctx.fill();
+                
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.moveTo(this.x+40, this.y+70);
+                ctx.lineTo(this.x+30, this.y+90);
+                ctx.moveTo(this.x+60, this.y+70);
+                ctx.lineTo(this.x+70, this.y+90);
+                ctx.stroke();
+            } 
+            else if (this.type === 'mage') {
+                // 마법사: 원 + 수정구
+                ctx.beginPath(); 
+                ctx.arc(this.x+50, this.y+50, this.radius, 0, Math.PI*2); 
+                ctx.fill();
+                
+                ctx.font = '24px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillStyle = '#fff'; // 텍스트 색상 지정
+                ctx.fillText('🔮', this.x+50, this.y+50);
+            } 
+            else {
+                // 🔥 나머지는 기본 원형 + 눈 (원래대로)
+                ctx.beginPath(); 
+                ctx.arc(this.x+50, this.y+50, this.radius, 0, Math.PI*2); 
+                ctx.fill();
+
+                ctx.fillStyle = '#fff'; 
+                ctx.beginPath(); 
+                ctx.arc(this.x+35, this.y+45, 8, 0, Math.PI*2); 
+                ctx.arc(this.x+65, this.y+45, 8, 0, Math.PI*2); 
+                ctx.fill();
             }
             
-            if (this.slowTimer > 0) {
-                 ctx.fillStyle = 'rgba(0, 255, 255, 0.5)'; // 슬로우 이펙트
-                 ctx.beginPath(); ctx.arc(this.x+50, this.y+50, this.radius+5, 0, Math.PI*2); ctx.fill();
+            if (this.isSummoning) {
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.arc(this.x+50, this.y+50, this.radius + 10, 0, Math.PI*2);
+                ctx.stroke();
             }
 
             let hpY = (this.y < 10) ? this.y + 85 : this.y - 15;
+
             ctx.fillStyle = '#000'; ctx.fillRect(this.x+20, hpY, 60, 5);
             ctx.fillStyle = this.color; ctx.fillRect(this.x+20, hpY, 60*(this.hp/this.maxHp), 5);
+            
+            if (globalBuffs.enemySpeedMult < 1.0) {
+                 ctx.fillStyle = '#00e5ff'; ctx.font = '12px Arial'; ctx.fillText('❄️', this.x+50, this.y+80);
+            }
         }
     }
-    
-    // ... (Projectile draw update, animate loop - same as before but Projectile update logic changes)
 
-    function spawnShockwave(x, y, color = '#ffaa00') {
-        let wave = new Particle(x, y, color);
+    class Projectile {
+        constructor(x, y, dmg, dy, color, isCrit, sourceType) { 
+            this.x = x; this.y = y; this.dmg = dmg; this.dy = dy; this.color = color; 
+            this.speed = 10; this.isCrit = isCrit;
+            this.sourceType = sourceType; 
+        }
+        update() { this.x += this.speed; this.y += this.dy * this.speed; }
+        draw() { 
+            ctx.fillStyle = this.isCrit ? '#fff' : this.color; 
+            ctx.beginPath(); 
+            ctx.arc(this.x, this.y, this.isCrit ? 10 : 8, 0, Math.PI*2); 
+            ctx.fill(); 
+            if(this.isCrit) {
+                ctx.strokeStyle = this.color; ctx.lineWidth = 2; ctx.stroke();
+            }
+        }
+    }
+
+    class FloatingText {
+        constructor(text, x, y, color='#fff', size=18) { 
+            this.text = text; this.x = x; this.y = y; this.color = color; this.size = size;
+            this.life = 1.0; this.dy = -0.5; 
+        }
+        update() { 
+            this.y += this.dy; 
+            this.life -= 0.008; 
+        }
+        draw() { 
+            ctx.globalAlpha = Math.max(0, this.life); ctx.fillStyle = this.color; 
+            ctx.font = `bold ${this.size}px Arial`; ctx.textAlign='center'; 
+            ctx.fillText(this.text, this.x, this.y); ctx.globalAlpha = 1.0; 
+        }
+    }
+    function spawnFloatingText(text, x, y, color, size) { floatingTexts.push(new FloatingText(text, x, y, color, size)); }
+
+    class Particle {
+        constructor(x, y, color) { this.x = x; this.y = y; this.color = color; this.vx = (Math.random()-0.5)*5; this.vy = (Math.random()-0.5)*5; this.life = 1.0; }
+        update() { this.x += this.vx; this.y += this.vy; this.life -= 0.05; }
+        draw() { ctx.globalAlpha = Math.max(0, this.life); ctx.fillStyle = this.color; ctx.beginPath(); ctx.arc(this.x, this.y, 3, 0, Math.PI*2); ctx.fill(); ctx.globalAlpha = 1.0; }
+    }
+    function spawnParticles(x, y, c, color) { for(let i=0; i<c; i++) particles.push(new Particle(x, y, color)); }
+
+    function spawnShockwave(x, y) {
+        let wave = new Particle(x, y, '#ffaa00');
         wave.life = 2.0; 
         wave.draw = function() {
             ctx.globalAlpha = Math.max(0, this.life/2);
-            ctx.strokeStyle = this.color; // 색상 적용
+            ctx.strokeStyle = '#ffaa00';
             ctx.lineWidth = 5;
             ctx.beginPath();
             ctx.arc(this.x, this.y, 330 * (1 - this.life/2), 0, Math.PI*2); 
@@ -1496,10 +1636,158 @@
         }
         particles.push(wave);
     }
-    
-    // Projectile Loop (for hit detection with special effects)
-    // ... animate 함수 내 projectiles.forEach 수정 필요
-    // ...
+
+    function animate() {
+        if (!isPlaying) return;
+        requestAnimationFrame(animate);
+        if (isPaused) return;
+
+        ctx.clearRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+        for (let r=0; r<ROWS; r++) {
+            for (let c=0; c<COLS; c++) {
+                ctx.fillStyle = (r+c)%2===0 ? '#222' : '#2a2a2a'; ctx.fillRect(c*CELL_SIZE, r*CELL_SIZE, CELL_SIZE, CELL_SIZE);
+            }
+        }
+        if (selectedType) { ctx.strokeStyle = '#ffd700'; ctx.lineWidth = 3; ctx.strokeRect(0, 0, GAME_WIDTH-CELL_SIZE, GAME_HEIGHT); }
+        if (focusedUnit) { ctx.strokeStyle = '#fff'; ctx.lineWidth = 4; ctx.strokeRect(focusedUnit.x, focusedUnit.y, CELL_SIZE, CELL_SIZE); }
+
+        if (!isWaveStarting) {
+            // 🔥 전술 폭격 (Wave 12+)
+            if (wave >= 12 && frame % 400 === 0) { // 약 6.6초마다
+                // 무작위 유닛 타겟
+                if (defenders.length > 0) {
+                    const target = defenders[Math.floor(Math.random() * defenders.length)];
+                    meteors.push(new Meteor(target.x, target.y, 100 + wave * 10));
+                } else {
+                    // 유닛 없으면 빈 땅에 (위협용)
+                    meteors.push(new Meteor(Math.random() * GAME_WIDTH, Math.random() * GAME_HEIGHT, 0));
+                }
+            }
+
+            if (enemiesSpawned < enemiesToSpawn) {
+                let spawnRate = Math.max(60, 300 - (wave * 30)); 
+                if (frame % spawnRate === 0) { enemies.push(new Enemy()); enemiesSpawned++; }
+            }
+
+            defenders.forEach(d => d.update());
+            enemies.forEach((e, i) => {
+                e.update();
+            });
+        }
+        
+        defenders.sort((a,b) => a.y - b.y);
+        defenders.forEach(d => d.draw());
+
+        // 🔥 메테오 업데이트 및 그리기
+        meteors.forEach((m, i) => {
+            if (!isWaveStarting) m.update();
+            m.draw();
+            if (m.timer <= 0) {
+                // 폭발 처리
+                spawnShockwave(m.x + 50, m.y + 50);
+                spawnParticles(m.x + 50, m.y + 50, 20, '#ff4400');
+                
+                // 데미지 판정
+                defenders.forEach(d => {
+                    if (d.x === m.x && d.y === m.y) {
+                        d.hp -= m.damage;
+                        spawnFloatingText(`-${m.damage}`, d.x+50, d.y, '#ff0000', 24);
+                        if (d.hp <= 0) {
+                            defenders = defenders.filter(u => u !== d);
+                            closeUpgradePanel();
+                        }
+                    }
+                });
+                meteors.splice(i, 1);
+            }
+        });
+
+        enemies.forEach((e, i) => {
+             e.draw(); 
+             
+             if (isWaveStarting) return; 
+
+             if (e.x < 0) {
+                enemies.splice(i, 1);
+                lives--;
+                updateUI();
+                spawnFloatingText("💔", 50, e.y, '#ff0000', 40);
+                enemiesKilled++; 
+                checkWaveClear();
+
+                if (lives <= 0) {
+                    isPlaying = false;
+                    document.querySelector('#overlay h1').innerText = "GAME OVER";
+                    document.querySelector('#overlay-msg').innerText = "점수를 저장하고 있습니다...";
+                    
+                    showRandomTip();
+
+                    document.getElementById('overlay').style.display = 'flex';
+                    document.getElementById('start-btn').style.display = 'none'; 
+                    document.getElementById('rank-info').style.display = 'block';
+                    document.getElementById('new-record-form').style.display = 'none'; 
+                    
+                    document.getElementById('res-score').innerText = Math.floor(score);
+
+                    if(window.saveScoreAndCheckRank) {
+                        window.saveScoreAndCheckRank(Math.floor(score)).then(res => {
+                            document.getElementById('res-rank').innerText = res.rank > 50 ? "50위 밖" : `${res.rank}위`;
+                            document.getElementById('res-top-score').innerText = res.topScore;
+                            document.getElementById('res-top-name').innerText = res.topName;
+                            
+                            // 🔥 목표 점수 업데이트
+                            const elNextScore = document.getElementById('res-next-score');
+                            const elNextRank = document.getElementById('res-next-rank');
+                            
+                            if (elNextScore && elNextRank) {
+                                elNextScore.innerText = res.nextScore;
+                                elNextRank.innerText = res.nextRankInfo;
+                            }
+
+                            document.querySelector('#overlay-msg').innerText = "수고하셨습니다!";
+                            document.getElementById('start-btn').innerText = "다시 하기";
+                            document.getElementById('start-btn').style.display = 'block';
+
+                            window.currentDocId = res.docId;
+                            if (res.isNewRecord) {
+                                document.getElementById('new-record-form').style.display = 'block';
+                            }
+                        });
+                    }
+                }
+            } else if (e.hp <= 0) {
+                if (e.ability === 'explode') {
+                    let explosionDmg = 80 + (Math.floor(wave / 5) * 10);
+                    spawnShockwave(e.x + 50, e.y + 50); 
+                    defenders.forEach(d => {
+                        const dist = Math.hypot((d.x+50)-(e.x+50), (d.y+50)-(e.y+50));
+                        if (dist < 330) {
+                            d.hp -= explosionDmg; 
+                            spawnFloatingText(`-${explosionDmg}`, d.x+50, d.y, '#ff4400', 20);
+                            if (d.hp <= 0) { 
+                                defenders = defenders.filter(u => u !== d); 
+                                closeUpgradePanel(); 
+                            }
+                        }
+                    });
+                }
+
+                enemies.splice(i, 1); 
+                let gain = 10 + globalBuffs.goldPerKill;
+                
+                if (globalBuffs.pawnLoot && e.killedBy === 'pawn') {
+                    gain += 1;
+                    spawnFloatingText("+1 Loot", e.x+50, e.y, '#ffff00', 14);
+                }
+
+                energy += gain; 
+                score += gain; 
+                enemiesKilled++; updateUI();
+                spawnParticles(e.x+50, e.y+50, 10, '#e74c3c');
+                checkWaveClear();
+            }
+        });
+
         projectiles.forEach((p, i) => {
             if (!isWaveStarting) p.update();
             p.draw();
@@ -1510,28 +1798,24 @@
             for (let e of enemies) {
                 if (Math.hypot((e.x+50)-p.x, (e.y+50)-p.y) < (40 + e.radius - 35)) {
                     e.takeDamage(p.dmg, p.isCrit, p.sourceType); 
-                    
-                    // 🔥 특수 효과 적용
-                    if (p.element === 'fire') {
-                        spawnParticles(p.x, p.y, 10, '#ff4400');
-                        // 스플래시 (반경 150)
-                         enemies.forEach(subE => {
-                            if (subE !== e && Math.hypot((subE.x+50)-p.x, (subE.y+50)-p.y) < 150) {
-                                subE.takeDamage(p.dmg * 0.5, false, 'queen_fire');
-                            }
-                        });
-                    } else if (p.element === 'ice') {
-                        spawnParticles(p.x, p.y, 10, '#00ffff');
-                        e.slowDown();
-                    } else {
-                        spawnParticles(p.x, p.y, 3, p.color); 
-                    }
-                    
-                    projectiles.splice(i, 1); break;
+                    spawnParticles(p.x, p.y, 3, p.color); projectiles.splice(i, 1); break;
                 }
             }
         });
-    // ...
+        
+        particles.forEach((p, i) => { 
+            if (!isWaveStarting) p.update(); 
+            p.draw(); 
+            if (p.life <= 0) particles.splice(i, 1); 
+        });
+        floatingTexts.forEach((t, i) => { 
+            if (!isWaveStarting) t.update(); 
+            t.draw(); 
+            if (t.life <= 0) floatingTexts.splice(i, 1); 
+        });
+
+        if (!isWaveStarting) frame++;
+    }
 
     // 🔥 초기 실행 시 팁 랜덤 표시
     showRandomTip();
