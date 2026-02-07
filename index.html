@@ -1113,7 +1113,7 @@
                 this.damage = Math.floor(this.baseStats.dmg * Math.pow(1.3, this.level - 1) * finalDmgMult);
             }
             
-            this.cd = Math.max(10, Math.floor(this.baseStats.spd / finalSpdMult));
+            this.cd = Math.max(10, Math.floor(this.baseStats.spd / finalSpdMult* (1 + wave * 0.000001)));
             this.hp = Math.min(this.hp, this.maxHp);
         }
 
@@ -1296,7 +1296,7 @@
             this.color = typeData.color;
             this.radius = typeData.radius;
             this.ability = typeData.ability;
-            this.atkSpeed = typeData.atkSpeed || 60 / (1 - Math.floor(wave / 5) * 0.00001);
+            this.atkSpeed = typeData.atkSpeed || 60 ;
 
             // 🔥 20% 증가로 수정 -> 체력 기본 100
             let baseHp = 100 * Math.pow(1.2, wave - 1);
