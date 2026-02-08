@@ -698,7 +698,7 @@
     function checkWaveClear() {
         if (enemiesKilled >= waveTotalEnemies) {
              // 🔥 5웨이브마다 스킬 포인트 지급
-             if (wave % 5 === 0) {
+             if (wave % 3 === 0) {
                  skillPoints++;
                  spawnFloatingText("+1 SP", GAME_WIDTH/2, GAME_HEIGHT/2 - 50, '#00ff00', 30);
              }
