@@ -1445,7 +1445,7 @@
                     // 🔥 개별 공격 쿨타임 적용
                     if (this.attackCooldown <= 0) {
                         // 정찰병 회피 확률 (저주 적용)
-                        if (this.type === 'fast' && Math.random() < (0.3 + globalBuffs.scoutDodgeChance)) {
+                        if (this.type === 'fast' && Math.random() < (0.15 + globalBuffs.scoutDodgeChance)) {
                              // 회피 성공 시 데미지 안 입힘 (사실 적이 아군 때리는거라 의미 없지만 로직상 유지)
                         } else {
                             d.hp -= this.damage;
@@ -1511,7 +1511,7 @@
 
                 if (sy >= 0 && sy < GAME_HEIGHT && sx > 0) {
                     enemies.push(new Enemy(sx, sy, minionTypeData.type));
-                    spawnParticles(sx + 50, sy + 50, 10, minionTypeData.color);
+                    spawnParticles(sx , sy + 50, 10, minionTypeData.color);
                     
                     waveTotalEnemies++;
                     updateUI(); 
