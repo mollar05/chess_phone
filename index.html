@@ -388,7 +388,7 @@
     let currentRerollCost = 0;
 
     // 🔥 스킬 & 해금 시스템
-    let skillPoints = 1; // 서비스 1포인트
+    let skillPoints = 2; // 서비스 2포인트
     let unlockedUnits = ['pawn', 'bishop']; 
     let unlockedAbilities = []; 
 
@@ -435,11 +435,11 @@
     window.currentDocId = null;
 
     const UNITS = {
-        'king':   { cost: 100,  hp: 200, dmg: 0.2, spd: 120, upCost: 120, color: '#ffd700', icon: '♚', name: '킹' },
-        'pawn':   { cost: 50,  hp: 400, dmg: 10,  spd: 60,  upCost: 30,  color: '#aaa',    icon: '♟️', name: '폰' },
-        'rook':   { cost: 370, hp: 200, dmg: 30,  spd: 90,  upCost: 120, color: '#4a90e2', icon: '♜', name: '룩' },
-        'bishop': { cost: 120, hp: 150, dmg: 40,  spd: 60,  upCost: 40,  color: '#9013fe', icon: '♝', name: '비숍' },
-        'knight': { cost: 500, hp: 300, dmg: 0,   spd: 120, upCost: 200, color: '#7ed321', icon: '♞', name: '나이트' }, 
+        'king':   { cost: 70,  hp: 200, dmg: 0.2, spd: 120, upCost: 120, color: '#ffd700', icon: '♚', name: '킹' },
+        'pawn':   { cost: 20,  hp: 400, dmg: 10,  spd: 60,  upCost: 30,  color: '#aaa',    icon: '♟️', name: '폰' },
+        'rook':   { cost: 300, hp: 200, dmg: 30,  spd: 30,  upCost: 120, color: '#4a90e2', icon: '♜', name: '룩' },
+        'bishop': { cost: 60, hp: 150, dmg: 40,  spd: 60,  upCost: 40,  color: '#9013fe', icon: '♝', name: '비숍' },
+        'knight': { cost: 100, hp: 300, dmg: 0,   spd: 120, upCost: 100, color: '#7ed321', icon: '♞', name: '나이트' }, 
         'queen':  { cost: 1500, hp: 500, dmg: 5,   spd: 45,  upCost: 300, color: '#ff00ff', icon: '♛', name: '퀸' } 
     };
 
