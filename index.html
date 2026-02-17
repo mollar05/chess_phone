@@ -1317,7 +1317,7 @@
             
             // 🔥 보스 체력 보정 (웨이브 10, 20...)
             if (wave % 10 === 0 && this.type !== 'normal') {
-                baseHp *= 5; // 보스는 5배 체력
+                baseHp *= 3; // 보스는 5배 체력
             }
 
             this.hp = baseHp * typeData.hpMult;
@@ -1329,7 +1329,7 @@
             this.moveSpeed = this.speed;
             
             // 🔥 적 공격력 0.01 증가
-            this.damage = 10 + (wave * 5);
+            this.damage = 10 + (wave * 2.5);
             
             // 🔥 자폭병 공격력은 1로 고정
             if (this.type === 'bomber') {
