@@ -1511,7 +1511,7 @@
 
                 if (sy >= 0 && sy < GAME_HEIGHT && sx > 0) {
                     enemies.push(new Enemy(sx, sy, minionTypeData.type));
-                    spawnParticles(sx , sy + 50, 10, minionTypeData.color);
+                    spawnParticles(sx + CELL_SIZE/2, sy + CELL_SIZE/2, 10, minionTypeData.color );
                     
                     waveTotalEnemies++;
                     updateUI(); 
