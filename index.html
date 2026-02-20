@@ -171,6 +171,27 @@
                 }
             });
         });
+        function damageEnemyAt(x,y){
+            for(const e of enemies){
+        
+                const w = e.width ?? e.size ?? CELL_SIZE;
+                const h = e.height ?? e.size ?? CELL_SIZE;
+        
+                if(
+                    x >= e.x &&
+                    x <= e.x + w &&
+                    y >= e.y &&
+                    y <= e.y + h
+                ){
+                    e.hp -= 1;
+        
+                    // 터치 이펙트 (있으면)
+                    spawnParticles?.(x,y,8,"white");
+        
+                    break; // 한 마리만 맞게
+                }
+            }
+        }
 
         // 랭킹 로직
         window.saveScoreAndCheckRank = async (finalScore) => {
@@ -1048,6 +1069,22 @@
 
     canvas.addEventListener('mousedown', e => handleInput(e.clientX, e.clientY));
     canvas.addEventListener('touchstart', e => { e.preventDefault(); handleInput(e.touches[0].clientX, e.touches[0].clientY); }, { passive: false });
+    canvas.addEventListener("touchstart", e=>{//클릭 이벤트
+        const rect = canvas.getBoundingClientRect();
+        const t = e.touches[0];
+    
+        const x = t.clientX - rect.left;
+        const y = t.clientY - rect.top;
+    
+        damageEnemyAt(x,y);
+    });
+    canvas.addEventListener("mousedown", e=>{//이것도
+        const rect = canvas.getBoundingClientRect();
+        damageEnemyAt(
+            e.clientX - rect.left,
+            e.clientY - rect.top
+        );
+    });
 
     // 🔥 Domain Class (장판)
     class Domain {
