@@ -435,12 +435,12 @@
     window.currentDocId = null;
 
     const UNITS = {
-        'king':   { cost: 70,  hp: 200, dmg: 0.2, spd: 120, upCost: 120, color: '#ffd700', icon: '♚', name: '킹' },
+        'king':   { cost: 70,  hp: 230, dmg: 0.2, spd: 120, upCost: 120, color: '#ffd700', icon: '♚', name: '킹' },
         'pawn':   { cost: 20,  hp: 400, dmg: 10,  spd: 60,  upCost: 30,  color: '#aaa',    icon: '♟️', name: '폰' },
-        'rook':   { cost: 300, hp: 200, dmg: 30,  spd: 30,  upCost: 120, color: '#4a90e2', icon: '♜', name: '룩' },
-        'bishop': { cost: 60, hp: 150, dmg: 40,  spd: 60,  upCost: 40,  color: '#9013fe', icon: '♝', name: '비숍' },
-        'knight': { cost: 100, hp: 300, dmg: 0,   spd: 120, upCost: 100, color: '#7ed321', icon: '♞', name: '나이트' }, 
-        'queen':  { cost: 1500, hp: 500, dmg: 5,   spd: 45,  upCost: 300, color: '#ff00ff', icon: '♛', name: '퀸' } 
+        'rook':   { cost: 300, hp: 230, dmg: 30,  spd: 30,  upCost: 80, color: '#4a90e2', icon: '♜', name: '룩' },
+        'bishop': { cost: 60, hp: 300, dmg: 40,  spd: 60,  upCost: 40,  color: '#9013fe', icon: '♝', name: '비숍' },
+        'knight': { cost: 120, hp: 300, dmg: 0,   spd: 120, upCost: 100, color: '#7ed321', icon: '♞', name: '나이트' }, 
+        'queen':  { cost: 1500, hp: 500, dmg: 30,   spd: 15,  upCost: 200, color: '#ff00ff', icon: '♛', name: '퀸' } 
     };
 
     const CARD_POOL = [
@@ -1329,7 +1329,7 @@
             this.moveSpeed = this.speed;
             
             // 🔥 적 공격력 0.01 증가
-            this.damage = 10 + (wave * 2.5);
+            this.damage = 10 + (wave * 5);
             
             // 🔥 자폭병 공격력은 1로 고정
             if (this.type === 'bomber') {
@@ -1480,7 +1480,7 @@
                 // 2. 전방 아군 약화 (반경 300)
                 let cursed = false;
                 defenders.forEach(d => {
-                    if (Math.hypot((d.x - this.x), (d.y - this.y)) < 300) {
+                    if (Math.hypot((d.x - this.x), (d.y - this.y)) < 200) {
                         d.weaken();
                         cursed = true;
                     }
