@@ -1069,7 +1069,7 @@
 
     canvas.addEventListener('mousedown', e => handleInput(e.clientX, e.clientY));
     canvas.addEventListener('touchstart', e => { e.preventDefault(); handleInput(e.touches[0].clientX, e.touches[0].clientY); }, { passive: false });
-    canvas.addEventListener("pointerdown", e=>{
+    canvas.addEventListener("pointerdown", e=>{//클릭 이벤트
         const rect = canvas.getBoundingClientRect();
         damageEnemyAt(
             e.clientX - rect.left,
