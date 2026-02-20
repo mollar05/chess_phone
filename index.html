@@ -654,6 +654,7 @@
         }
         
         let isHorde = Math.random() < 0.05;
+        if(forceEndCheck()) return;//타이머
         if (isHorde) {
             waveTotalEnemies *= 2;
             spawnFloatingText("⚠️ 대규모 웨이브! ⚠️", GAME_WIDTH/2, GAME_HEIGHT/2, '#ff0000', 30);
@@ -1374,6 +1375,26 @@
                     this.skillTimer = 0;
                 }
                 return; 
+            }
+            let gameStartTime = Date.now();//타이머
+            function forceEndCheck(){
+            
+                const elapsed = Date.now() - gameStartTime;
+            
+                // 3분 = 180000ms
+                if(elapsed < 180000 && (energy >= 3000 || score >= 3000)){
+            
+                    // 강제 종료 처리
+                    endGame?.("비정상 수치 감지");   // 기존 함수 있으면 사용
+            
+                    // 없으면 기본 정지
+                    alert("게임 강제 종료");
+                    location.reload();
+            
+                    return true;
+                }
+            
+                return false;
             }
 
             // 🔥 슬로우 로직 적용
