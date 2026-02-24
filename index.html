@@ -698,7 +698,7 @@
     function checkWaveClear() {
         if (enemiesKilled >= waveTotalEnemies) {
              // 🔥 3웨이브마다 스킬 포인트 지급
-             if (wave/3 === 1) {
+             if (wave % 3 === 0) {
                  skillPoints+=1;
                  spawnFloatingText("+1 SP", GAME_WIDTH/2, GAME_HEIGHT/2 - 50, '#00ff00', 30);
              }
@@ -1184,7 +1184,7 @@ class Defender {
 
             // 🗡️ 나이트 완벽 개조 로직
             if (this.type === 'knight') { 
-                 let range = 330 * globalBuffs.rangeMult;
+                 let range = 200 * globalBuffs.rangeMult;
                  let hit = false;
                  
                  enemies.forEach(e => {
@@ -1196,7 +1196,7 @@ class Defender {
                         if (this.upgradePath === 'fire') {
                             e.applyBurnStack(finalDmg * 0.3, 180); 
                             particles.push(new SlashParticle(cx, cy, e.x+50, e.y+50, '#ff4400'));
-                            spawnParticles(e.x+50, e.y+50, 15, '#ff4400');
+                            spawnParticles(e.x+50, e.y+50, 10, '#ff4400');
                             spawnFloatingText("BURN!", e.x+50, e.y - 20, "#ff4400", 18);
                         } else if (this.upgradePath === 'ice') {
                             e.applyStun(60); 
