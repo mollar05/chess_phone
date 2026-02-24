@@ -1312,11 +1312,11 @@ class Defender {
         }
     }
 
-    class Enemy {
+class Enemy {
         constructor(spawnX, spawnY, forcedType) {
             this.y = (spawnY !== undefined) ? spawnY : Math.floor(Math.random() * ROWS) * CELL_SIZE;
             this.x = (spawnX !== undefined) ? spawnX : GAME_WIDTH;
-            this.stunTimer = 0;   // 남은 스턴 시간
+            this.stunTimer = 0;   // 남은 스턴 시간 (프레임 단위)
             this.burnStacks = []; // 중첩 화상 목록
             
             let typeData;
@@ -1333,49 +1333,52 @@ class Defender {
             this.ability = typeData.ability;
             this.atkSpeed = typeData.atkSpeed || 60 ;
 
-            // 🔥 20% 증가로 수정 -> 체력 기본 100
+            // 체력 기본 100
             let baseHp = 100 * Math.pow(1.2, wave - 1);
             
             // 저주 효과 (체력 증가)
-            if (globalBuffs.hpMult_Enemy) baseHp *= globalBuffs.hpMult_Enemy;
+            if (globalBuffs && globalBuffs.hpMult_Enemy) baseHp *= globalBuffs.hpMult_Enemy;
             
-            // 🔥 보스 체력 보정 (웨이브 10, 20...)
+            // 보스 체력 보정 (웨이브 10, 20...)
             if (wave % 10 === 0 && this.type !== 'normal') {
-                baseHp *= 3; // 보스는 5배 체력
+                baseHp *= 3; // 보스는 3배 체력
             }
 
             this.hp = baseHp * typeData.hpMult;
             this.maxHp = this.hp;
 
-            // 🔥 0.001 증가로 수정
+            // 이동 속도
             let baseSpeed = Math.random() * 0.4 + 0.4 + (wave * 0.001);
             this.speed = baseSpeed * typeData.spdMult;
             this.moveSpeed = this.speed;
             
-            // 🔥 적 공격력 0.01 증가
+            // 적 공격력
             this.damage = 10 + (wave * 5);
             
-            // 🔥 자폭병 공격력은 1로 고정
+            // 자폭병 공격력은 1로 고정
             if (this.type === 'bomber') {
                 this.damage = 1;
             }
             
-            // 🔥 정찰병 공격력 고정 (일반 병사와 동일하게)
+            // 정찰병 공격력 고정 (일반 병사와 동일하게)
             if (this.type === 'fast') {
                 this.damage = (10 * 2 / 3) + (wave * 0.001); 
             }
             
             this.skillTimer = 0;
             this.isSummoning = false;
-            this.hasJumped = false; // 🔥 점퍼용 플래그
-            this.attackCooldown = 0; // 🔥 개별 공격 쿨타임
+            this.hasJumped = false; // 점퍼용 플래그
+            this.attackCooldown = 0; // 개별 공격 쿨타임
             
-            // 🔥 상태이상 변수
+            // 상태이상 변수
             this.slowTimer = 0; 
-            this.burnStacks = []; // { tick: 0, damage: 15 }
+            this.burnStacks = []; 
             this.onTileEffect = null; // 'fire' or 'ice' or null
         }
+        
+        // 스턴 부여 함수
         applyStun(duration) {
+            // 기존 스턴 시간보다 새로 걸린 스턴 시간이 길면 갱신 (프레임 단위)
             this.stunTimer = Math.max(this.stunTimer, duration);
         }
     
@@ -1386,37 +1389,52 @@ class Defender {
         update() {
             if (isWaveStarting) return; 
 
-            // 🔥 마법사 로직 (3초마다)
-            if (this.ability === 'magic') {
-                this.skillTimer++;
-                if (this.skillTimer > 180) { // 3초
-                    this.skillTimer = 0;
-                    this.castMagic();
+            // 🌟 1. 스턴 로직 처리 🌟
+            if (this.stunTimer > 0) {
+                this.stunTimer--;
+                this.moveSpeed = 0; // 스턴 중 이동 불가
+                
+                // 타일 효과나 화상 같은 지속 데미지/효과는 스턴 중에도 들어가야 하므로
+                // return 하지 않고 아래 상태이상 처리 로직으로 넘어감.
+                // 단, 스킬 타이머나 공격, 이동 로직은 건너뛰도록 분기 처리함.
+            } else {
+                // 🌟 스턴 상태가 아닐 때만 스킬 및 이동 속도 계산 🌟
+                
+                // 마법사 로직 (3초마다)
+                if (this.ability === 'magic') {
+                    this.skillTimer++;
+                    if (this.skillTimer > 180) { // 3초
+                        this.skillTimer = 0;
+                        this.castMagic();
+                    }
+                }
+
+                // 소환 중일 때의 대기 시간 처리
+                if (this.isSummoning) {
+                    this.skillTimer++;
+                    if (this.skillTimer > 60) {
+                        this.doSummon();
+                        this.isSummoning = false;
+                        this.skillTimer = 0;
+                    }
+                    // 소환 캐스팅 중에는 이동하지 않음
+                } else {
+                    // 슬로우 로직 적용 및 기본 이동 속도 계산
+                    let currentSpeed = this.speed * (globalBuffs && globalBuffs.enemySpeedMult ? globalBuffs.enemySpeedMult : 1);
+                    if (this.slowTimer > 0) {
+                        this.slowTimer--;
+                        currentSpeed *= 0.5; // 50% 감속
+                    }
+                    if (this.onTileEffect === 'ice') {
+                        currentSpeed *= 0.4; // 60% 감속
+                    }
+                    this.moveSpeed = currentSpeed;
                 }
             }
 
-            if (this.isSummoning) {
-                this.skillTimer++;
-                if (this.skillTimer > 60) {
-                    this.doSummon();
-                    this.isSummoning = false;
-                    this.skillTimer = 0;
-                }
-                return; 
-            }
-
-            // 🔥 슬로우 로직 적용
-            let currentSpeed = this.speed * globalBuffs.enemySpeedMult;
-            if (this.slowTimer > 0) {
-                this.slowTimer--;
-                currentSpeed *= 0.5; // 50% 감속 (빙결탄)
-            }
-            if (this.onTileEffect === 'ice') {
-                currentSpeed *= 0.4; // 60% 감속 (얼음판)
-            }
-            this.moveSpeed = currentSpeed;
-
-            // 🔥 화상 로직 적용 (퀸)
+            // 🌟 2. 지속 데미지 처리 (스턴 중에도 적용) 🌟
+            
+            // 화상 로직 적용 (퀸 등)
             for (let i = this.burnStacks.length - 1; i >= 0; i--) {
                 let burn = this.burnStacks[i];
                 burn.tick++;
@@ -1424,25 +1442,26 @@ class Defender {
                     this.hp -= 15;
                     spawnFloatingText("-15", this.x + 50, this.y, '#ff8800', 14);
                     burn.tick = 0;
-                    burn.duration--;
+                    burn.time--; // duration 대신 time 변수 사용 (applyBurnStack 구조 일치)
                 }
-                if (burn.duration <= 0) {
+                if (burn.time <= 0) {
                     this.burnStacks.splice(i, 1);
                 }
             }
 
-            // 🔥 불판 데미지 (나이트)
+            // 불판 데미지 (나이트) - 데미지 3
             if (this.onTileEffect === 'fire') {
                  if (frame % 30 === 0) { // 0.5초마다 데미지
-                     this.hp -= 5; // 소소한 지속딜
-                     spawnFloatingText("-5", this.x + 50, this.y, '#ff4400', 10);
+                     this.hp -= 3;
+                     spawnFloatingText("-3", this.x + 50, this.y, '#ff4400', 10);
                  }
             }
             
             // 타일 효과 초기화 (매 프레임 갱신을 위해)
             this.onTileEffect = null;
             
-            if (this.ability === 'stun') {
+            // 소환 스킬 타이머 (스턴 중이 아닐 때만 증가)
+            if (this.ability === 'stun' && this.stunTimer <= 0 && !this.isSummoning) {
                 this.skillTimer++;
                 if (this.skillTimer > 600) {
                     this.isSummoning = true;
@@ -1451,14 +1470,20 @@ class Defender {
                 }
             } 
 
-            // 🔥 공격 쿨타임 감소
+            // 공격 쿨타임 감소 (스턴 중에도 쿨타임은 줄어들게 설정)
             if (this.attackCooldown > 0) this.attackCooldown--;
 
+            // 🌟 3. 충돌 및 공격 처리 🌟
+            let isColliding = false;
             for (let d of defenders) {
                 // 충돌 감지 (약 80px 거리)
                 if (d.y === this.y && this.x < d.x + 80 && this.x > d.x) {
+                    isColliding = true;
                     
-                    // 🔥 점퍼 로직: 충돌 시 1회 점프
+                    // 기절 상태면 공격 및 점프 로직 무시
+                    if (this.stunTimer > 0) continue;
+                    
+                    // 점퍼 로직: 충돌 시 1회 점프
                     if (this.ability === 'jump' && !this.hasJumped) {
                         spawnParticles(this.x+50, this.y+50, 10, '#00ffff'); // 사라짐 이펙트
                         this.x -= CELL_SIZE * 1.5; // 1.5칸 점프
@@ -1466,37 +1491,43 @@ class Defender {
                         spawnParticles(this.x+50, this.y+50, 10, '#00ffff'); // 나타남 이펙트
                         spawnFloatingText("Jump!", this.x+50, this.y, '#00ffff', 16);
                         
-                        // 점프 후 0.5초(30프레임) 딜레이 부여 (무적 시간 방지)
+                        // 점프 후 0.5초(30프레임) 딜레이 부여
                         this.attackCooldown = 30;
-                        return; 
+                        break; // 점프했으므로 이번 프레임 충돌 처리 종료
                     }
 
-                    this.moveSpeed = 0; 
+                    this.moveSpeed = 0; // 타워 앞에서는 이동 멈춤
                     
-                    // 🔥 개별 공격 쿨타임 적용
+                    // 개별 공격 쿨타임 적용
                     if (this.attackCooldown <= 0) {
-                        // 정찰병 회피 확률 (저주 적용)
-                        if (this.type === 'fast' && Math.random() < (0.15 + globalBuffs.scoutDodgeChance)) {
-                             // 회피 성공 시 데미지 안 입힘 (사실 적이 아군 때리는거라 의미 없지만 로직상 유지)
+                        // 정찰병 회피 확률 로직
+                        let dodgeChance = 0.15 + (globalBuffs && globalBuffs.scoutDodgeChance ? globalBuffs.scoutDodgeChance : 0);
+                        if (this.type === 'fast' && Math.random() < dodgeChance) {
+                             // 회피 성공
                         } else {
                             d.hp -= this.damage;
                         }
                         this.attackCooldown = this.atkSpeed; // 쿨타임 초기화
                     }
                     
-                    if (d.hp <= 0) { defenders = defenders.filter(u => u !== d); closeUpgradePanel(); }
+                    if (d.hp <= 0) { 
+                        defenders = defenders.filter(u => u !== d); 
+                        if(typeof closeUpgradePanel === 'function') closeUpgradePanel(); 
+                    }
                 }
             }
-            this.x -= this.moveSpeed;
+            
+            // 충돌 중이 아니고, 소환 캐스팅 중도 아니고, 스턴 상태도 아닐 때만 이동
+            if (!isColliding && !this.isSummoning && this.stunTimer <= 0) {
+                this.x -= this.moveSpeed;
+            }
         }
 
-        // 🔥 마법사 스킬 (힐 & 약화)
+        // 마법사 스킬 (힐 & 약화)
         castMagic() {
             spawnParticles(this.x + 50, this.y + 50, 15, '#9013fe');
             
-            // 50% 확률로 힐 또는 약화 (하나만)
             if (Math.random() < 0.5) {
-                // 1. 주변 적 힐 (반경 200)
                 let healed = false;
                 enemies.forEach(e => {
                     if (e !== this && Math.hypot((e.x - this.x), (e.y - this.y)) < 200) {
@@ -1508,11 +1539,10 @@ class Defender {
                 });
                 if(healed) spawnFloatingText("Heal!", this.x + 50, this.y, '#00ff00', 14);
             } else {
-                // 2. 전방 아군 약화 (반경 300)
                 let cursed = false;
                 defenders.forEach(d => {
                     if (Math.hypot((d.x - this.x), (d.y - this.y)) < 200) {
-                        d.weaken();
+                        if(typeof d.weaken === 'function') d.weaken();
                         cursed = true;
                     }
                 });
@@ -1530,7 +1560,6 @@ class Defender {
                 { x: 0, y: CELL_SIZE }
             ];
 
-            // 장군 소환: 자신(boss)을 제외한 타입만 소환
             const possibleMinions = ENEMY_TYPES.filter(e => e.type !== 'boss' && wave >= e.minWave);
             const minionTypeData = possibleMinions.length > 0 
                 ? possibleMinions[Math.floor(Math.random() * possibleMinions.length)]
@@ -1544,8 +1573,8 @@ class Defender {
                     enemies.push(new Enemy(sx, sy, minionTypeData.type));
                     spawnParticles(sx + CELL_SIZE/2, sy + CELL_SIZE/2, 10, minionTypeData.color );
                     
-                    waveTotalEnemies++;
-                    updateUI(); 
+                    if(typeof waveTotalEnemies !== 'undefined') waveTotalEnemies++;
+                    if(typeof updateUI === 'function') updateUI(); 
                 }
             });
         }
@@ -1560,8 +1589,7 @@ class Defender {
                 if (Math.random() < 0.3) spawnFloatingText("Block", this.x+50, this.y-20, '#888', 12);
             }
 
-            // 🔥 저주 효과 (적 방어력)
-            if (globalBuffs.enemyDefense > 0) {
+            if (globalBuffs && globalBuffs.enemyDefense > 0) {
                 amount = Math.max(1, amount - globalBuffs.enemyDefense);
             }
 
@@ -1571,14 +1599,12 @@ class Defender {
             if (this.hp <= 0) this.killedBy = sourceType;
         }
         
-        // ... (나머지 메서드 동일)
-        // 🔥 슬로우 적용 메서드
         slowDown() {
-            this.slowTimer = 60; // 1초간 슬로우 (빙결탄)
+            this.slowTimer = 60; // 1초간 슬로우
         }
         
         applyBurn() {
-             this.burnStacks.push({ tick: 0, duration: 5 }); // 5초 지속
+             this.burnStacks.push({ tick: 0, time: 5 }); // 5초 지속 (time 속성으로 일치시킴)
         }
 
         setTileEffect(type) {
@@ -1588,9 +1614,7 @@ class Defender {
         draw() {
             ctx.fillStyle = this.color; 
             
-            // 🔥 외형 롤백: 점퍼, 마법사만 특수 외형
             if (this.type === 'jumper') {
-                // 점퍼: 원 + 다리
                 ctx.beginPath(); 
                 ctx.arc(this.x+50, this.y+50, this.radius, 0, Math.PI*2); 
                 ctx.fill();
@@ -1605,7 +1629,6 @@ class Defender {
                 ctx.stroke();
             } 
             else if (this.type === 'mage') {
-                // 마법사: 원 + 수정구
                 ctx.beginPath(); 
                 ctx.arc(this.x+50, this.y+50, this.radius, 0, Math.PI*2); 
                 ctx.fill();
@@ -1613,11 +1636,10 @@ class Defender {
                 ctx.font = '24px Arial';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
-                ctx.fillStyle = '#fff'; // 텍스트 색상 지정
+                ctx.fillStyle = '#fff'; 
                 ctx.fillText('🔮', this.x+50, this.y+50);
             } 
             else {
-                // 🔥 나머지는 기본 원형 + 눈 (원래대로)
                 ctx.beginPath(); 
                 ctx.arc(this.x+50, this.y+50, this.radius, 0, Math.PI*2); 
                 ctx.fill();
@@ -1629,6 +1651,7 @@ class Defender {
                 ctx.fill();
             }
             
+            // 소환 캐스팅 중 표시
             if (this.isSummoning) {
                 ctx.strokeStyle = '#fff';
                 ctx.lineWidth = 3;
@@ -1637,20 +1660,39 @@ class Defender {
                 ctx.stroke();
             }
 
+            // 슬로우 효과 표시
             if (this.slowTimer > 0 || this.onTileEffect === 'ice') {
-                 ctx.fillStyle = 'rgba(0, 255, 255, 0.5)'; ctx.beginPath(); ctx.arc(this.x+50, this.y+50, this.radius+5, 0, Math.PI*2); ctx.fill();
+                 ctx.fillStyle = 'rgba(0, 255, 255, 0.5)'; 
+                 ctx.beginPath(); 
+                 ctx.arc(this.x+50, this.y+50, this.radius+5, 0, Math.PI*2); 
+                 ctx.fill();
             }
+            // 화상 효과 표시
             if (this.burnStacks.length > 0 || this.onTileEffect === 'fire') {
-                 ctx.fillStyle = 'rgba(255, 100, 0, 0.3)'; ctx.beginPath(); ctx.arc(this.x+50, this.y+50, this.radius+8, 0, Math.PI*2); ctx.fill();
+                 ctx.fillStyle = 'rgba(255, 100, 0, 0.3)'; 
+                 ctx.beginPath(); 
+                 ctx.arc(this.x+50, this.y+50, this.radius+8, 0, Math.PI*2); 
+                 ctx.fill();
             }
 
+            // 체력 바
             let hpY = (this.y < 10) ? this.y + 85 : this.y - 15;
-
             ctx.fillStyle = '#000'; ctx.fillRect(this.x+20, hpY, 60, 5);
             ctx.fillStyle = this.color; ctx.fillRect(this.x+20, hpY, 60*(this.hp/this.maxHp), 5);
             
-            if (globalBuffs.enemySpeedMult < 1.0) {
+            // 적 전체 속도 감소 디버프 아이콘
+            if (globalBuffs && globalBuffs.enemySpeedMult < 1.0) {
                  ctx.fillStyle = '#00e5ff'; ctx.font = '12px Arial'; ctx.fillText('❄️', this.x+50, this.y+80);
+            }
+
+            // 🌟 스턴 상태 애니메이션 표시 🌟
+            if (this.stunTimer > 0) {
+                ctx.font = '24px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                // 살짝 위에서 흔들리는 듯한 효과 (y좌표 미세 조정)
+                let wobble = Math.sin(frame * 0.2) * 5;
+                ctx.fillText('💫', this.x + 50, this.y - 15 + wobble);
             }
         }
     }
