@@ -1092,7 +1092,7 @@
         }
     }
 
-    class Defender {
+class Defender {
         constructor(x, y, type) {
             this.x = x; this.y = y; this.type = type;
             this.level = 1; this.baseStats = UNITS[type];
@@ -1149,8 +1149,6 @@
             }
             else if (this.type === 'knight') {
                 if (this.level === 2 && mode) this.upgradePath = mode;
-                // 나이트는 데미지 0, 스킬로만 딜
-                if (this.level === 2) this.damage = 0; 
             }
             else if (this.type === 'queen') {
                 if (this.level === 2 && mode) this.upgradePath = mode;
@@ -1159,60 +1157,82 @@
             this.hp = this.maxHp; 
         }
 
+        // 💡 해결 1: 타이머 엔진 복구! 쿨다운이 차면 스스로 act()를 호출해서 공격하게 만들었습니다!
         update() {
             if (this.stunTimer > 0) {
                 this.stunTimer--;
-                return;
+                return; // 기절 상태면 공격 불가
             }
-            this.timer++; if (this.timer % this.cd === 0) this.act();
+
+            this.timer++;
+            if (this.timer >= this.cd) {
+                this.act();   // 탕탕탕!
+                this.timer = 0; // 쿨다운 초기화
+            }
         }
 
         weaken() { this.weakened = true; }
 
         act() {
             const cx = this.x + 50, cy = this.y + 50;
-            // 킹 로직 (생략)
-            if (this.type === 'king') { energy += this.damage; score += this.damage; spawnFloatingText(`+${this.damage.toFixed(1)}`, cx, this.y, '#ffd700'); updateUI(); return; }
+            if (this.type === 'king') { energy += this.damage; score += this.damage; spawnFloatingText(`+${this.damage.toFixed(1)}`, cx, this.y, '#ffd700', 18); updateUI(); return; }
             
             let finalDmg = this.damage;
             let isCrit = false;
             if (Math.random() < globalBuffs.critChance) { finalDmg *= 2; isCrit = true; }
             if (this.weakened) { finalDmg *= 0.5; this.weakened = false; spawnFloatingText("Weak", this.x+50, this.y-20, '#cc00ff', 12); }
 
+            // 🗡️ 나이트 완벽 개조 로직
             if (this.type === 'knight') { 
                  let range = 330 * globalBuffs.rangeMult;
-                 // 🔥 나이트 영역 전개
-                 if (this.upgradePath === 'fire') {
-                     // 화염: 타일 생성 (빨간색)
-                     spawnTileEffect(this.x + CELL_SIZE, this.y, 'fire');
-                 } else if (this.upgradePath === 'ice') {
-                     // 얼음: 타일 생성 (파란색)
-                     spawnTileEffect(this.x + CELL_SIZE, this.y, 'ice');
-                 } else {
-                     // 기본 공격
-                     let hit = false;
-                     enemies.forEach(e => {
-                        if (Math.hypot((e.x+50)-cx, (e.y+50)-cy) < range) {
-                            e.takeDamage(finalDmg, isCrit, this.type);
-                            spawnParticles(e.x+50, e.y+50, 2, '#fff');
-                            hit = true;
+                 let hit = false;
+                 
+                 enemies.forEach(e => {
+                    if (Math.hypot((e.x+50)-cx, (e.y+50)-cy) < range) {
+                        e.takeDamage(finalDmg, isCrit, this.type);
+                        hit = true;
+
+                        // 업그레이드 속성에 따라 이펙트와 디버프 적용!
+                        if (this.upgradePath === 'fire') {
+                            e.applyBurnStack(finalDmg * 0.3, 180); 
+                            particles.push(new SlashParticle(cx, cy, e.x+50, e.y+50, '#ff4400'));
+                            spawnParticles(e.x+50, e.y+50, 15, '#ff4400');
+                            spawnFloatingText("BURN!", e.x+50, e.y - 20, "#ff4400", 18);
+                        } else if (this.upgradePath === 'ice') {
+                            e.applyStun(60); 
+                            particles.push(new SlashParticle(cx, cy, e.x+50, e.y+50, '#00ffff'));
+                            spawnParticles(e.x+50, e.y+50, 15, '#00ffff');
+                            spawnFloatingText("STUN!", e.x+50, e.y - 20, "#00ffff", 18);
+                        } else {
+                            // 기본 나이트
+                            particles.push(new SlashParticle(cx, cy, e.x+50, e.y+50, '#ffffff'));
+                            spawnParticles(e.x+50, e.y+50, 5, '#fff');
                         }
-                    });
-                    if(hit) this.effect = true;
-                 }
-            } else if (this.type === 'queen') {
-                 // 🔥 퀸 탄환 속성 부여
+                    }
+                });
+
+                if (this.upgradePath === 'fire') spawnTileEffect(this.x + CELL_SIZE, this.y, 'fire');
+                if (this.upgradePath === 'ice') spawnTileEffect(this.x + CELL_SIZE, this.y, 'ice');
+
+                if(hit) this.effect = true;
+            } 
+            // 👸 퀸 (속성 투사체)
+            else if (this.type === 'queen') {
                  let pType = this.upgradePath === 'fire' ? 'fire' : (this.upgradePath === 'ice' ? 'ice' : 'normal');
                  projectiles.push(new Projectile(cx, cy, finalDmg, 0, this.color, isCrit, this.type, pType));
                  projectiles.push(new Projectile(cx, cy, finalDmg, -0.6, this.color, isCrit, this.type, pType));
                  projectiles.push(new Projectile(cx, cy, finalDmg, 0.6, this.color, isCrit, this.type, pType));
-            } else if (this.type === 'bishop') {
+            } 
+            // 🧙 비숍 (대각선)
+            else if (this.type === 'bishop') {
                  projectiles.push(new Projectile(cx, cy, finalDmg, -0.6, this.color, isCrit, this.type));
                  projectiles.push(new Projectile(cx, cy, finalDmg, 0.6, this.color, isCrit, this.type));
-            } else { 
-                // Pawn, Rook
+            } 
+            // ♟️ 폰 & ♖ 룩 (직선 공격)
+            else { 
                 let range = (this.type === 'pawn') ? (180 * globalBuffs.rangeMult) : 900;
-                if (enemies.some(e => e.y === this.y && e.x > this.x && e.x < this.x + range)) {
+                // 💡 해결 2: 적의 Y좌표 오차를 20px까지 너그럽게 허용해줍니다. (스무스한 적 인식!)
+                if (enemies.some(e => Math.abs(e.y - this.y) < 20 && e.x > this.x && e.x < this.x + range)) {
                     projectiles.push(new Projectile(cx, cy, finalDmg, 0, this.color, isCrit, this.type));
                 }
             }
@@ -1246,6 +1266,7 @@
             const pct = this.hp/this.maxHp;
             ctx.fillStyle = '#000'; ctx.fillRect(this.x+10, this.y+80, 80, 6);
             ctx.fillStyle = pct > 0.3 ? '#2ecc71' : '#e74c3c'; ctx.fillRect(this.x+10, this.y+80, 80*pct, 6);
+            
             if(this.effect) {
                 ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.beginPath(); 
                 ctx.arc(this.x+50, this.y+50, 330 * globalBuffs.rangeMult / 2, 0, Math.PI*2); ctx.stroke();
@@ -1253,6 +1274,7 @@
             }
         }
     }
+
 
     // 🔥 Meteor Class
     class Meteor {
@@ -1294,6 +1316,8 @@
         constructor(spawnX, spawnY, forcedType) {
             this.y = (spawnY !== undefined) ? spawnY : Math.floor(Math.random() * ROWS) * CELL_SIZE;
             this.x = (spawnX !== undefined) ? spawnX : GAME_WIDTH;
+            this.stunTimer = 0;   // 남은 스턴 시간
+            this.burnStacks = []; // 중첩 화상 목록
             
             let typeData;
             if (forcedType) {
@@ -1350,6 +1374,13 @@
             this.slowTimer = 0; 
             this.burnStacks = []; // { tick: 0, damage: 15 }
             this.onTileEffect = null; // 'fire' or 'ice' or null
+        }
+        applyStun(duration) {
+            this.stunTimer = Math.max(this.stunTimer, duration);
+        }
+    
+        applyBurnStack(damage, duration) {
+            this.burnStacks.push({ dmg: damage, time: duration, tick: 0 });
         }
 
         update() {
@@ -1661,6 +1692,31 @@
         constructor(x, y, color) { this.x = x; this.y = y; this.color = color; this.vx = (Math.random()-0.5)*5; this.vy = (Math.random()-0.5)*5; this.life = 1.0; }
         update() { this.x += this.vx; this.y += this.vy; this.life -= 0.05; }
         draw() { ctx.globalAlpha = Math.max(0, this.life); ctx.fillStyle = this.color; ctx.beginPath(); ctx.arc(this.x, this.y, 3, 0, Math.PI*2); ctx.fill(); ctx.globalAlpha = 1.0; }
+    
+    }
+        function spawnFloatingText(x, y, text, color) {
+        floatingTexts.push(new FloatingText(x, y, text, color));
+    }
+
+
+
+    class SlashParticle {
+        constructor(x1, y1, x2, y2, color) {
+            this.x1 = x1; this.y1 = y1; this.x2 = x2; this.y2 = y2;
+            this.color = color;
+            this.life = 15; this.maxLife = 15;
+        }
+        update() { this.life--; }
+        draw() {
+            ctx.globalAlpha = this.life / this.maxLife;
+            ctx.strokeStyle = this.color;
+            ctx.lineWidth = 5;
+            ctx.beginPath();
+            ctx.moveTo(this.x1, this.y1);
+            ctx.lineTo(this.x2, this.y2);
+            ctx.stroke();
+            ctx.globalAlpha = 1.0;
+        }
     }
     function spawnParticles(x, y, c, color) { for(let i=0; i<c; i++) particles.push(new Particle(x, y, color)); }
 
