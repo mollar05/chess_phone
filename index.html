@@ -1093,187 +1093,221 @@
     }
 
 class Defender {
-        constructor(x, y, type) {
-            this.x = x; this.y = y; this.type = type;
-            this.level = 1; this.baseStats = UNITS[type];
-            this.color = this.baseStats.color; this.icon = this.baseStats.icon;
-            
-            this.extraHpMult = 1.0; 
-            this.extraSpdMult = 1.0;
-            this.extraDmgMult = 1.0; 
-            this.upgradePath = null; 
-            this.stunTimer = 0;
-            this.weakened = false;
-
-            this.applyBuffs(); 
-            this.hp = this.maxHp;
-            this.timer = 0; 
-        }
-
-        applyBuffs() {
-            const lvlMult = Math.pow(1.2, this.level - 1);
-            let finalHpMult = globalBuffs.hpMult * this.extraHpMult;
-            let finalSpdMult = globalBuffs.spdMult * this.extraSpdMult;
-            let finalDmgMult = globalBuffs.dmgMult * this.extraDmgMult;
-
-            this.maxHp = Math.floor(this.baseStats.hp * lvlMult * finalHpMult);
-            
-            if (this.type === 'king') {
-                this.damage = 0.2 + ((this.level-1) * 0.2) + globalBuffs.kingGold;
-            } else {
-                this.damage = Math.floor(this.baseStats.dmg * Math.pow(1.3, this.level - 1) * finalDmgMult);
-            }
-            
-            this.cd = Math.max(10, Math.floor(this.baseStats.spd / finalSpdMult* (1 + wave * 0.000001)));
-            this.hp = Math.min(this.hp, this.maxHp);
-        }
-
-        getUpgradeCost() { return Math.floor(this.baseStats.upCost * this.level); }
+    constructor(x, y, type) {
+        this.x = x; this.y = y; this.type = type;
+        this.level = 1; this.baseStats = UNITS[type];
+        this.color = this.baseStats.color; this.icon = this.baseStats.icon;
         
-        levelUp(mode) {
-            this.level++;
-            if (this.type === 'pawn') {
-                if (this.level === 2 && mode) this.upgradePath = mode;
-                if (this.upgradePath === 'berserk') { this.extraHpMult *= 0.9; this.extraSpdMult *= 1.15; }
-                else if (this.upgradePath === 'tank') { this.extraHpMult *= 1.2; }
-            }
-            else if (this.type === 'bishop') {
-                if (this.level === 2 && mode) this.upgradePath = mode;
-                if (this.upgradePath === 'rapid') { this.extraDmgMult *= 0.75; this.extraSpdMult *= 1.40; }
-                else if (this.upgradePath === 'power') { this.extraDmgMult *= 1.35; this.extraSpdMult *= 0.75; }
-            }
-            else if (this.type === 'rook') {
-                if (this.level === 2 && mode) this.upgradePath = mode;
-                if (this.upgradePath === 'cannon') { this.extraDmgMult *= 1.3; this.extraSpdMult *= 0.5; }
-                else if (this.upgradePath === 'vulcan') { this.extraDmgMult *= 0.4; this.extraSpdMult *= 1.6; }
-            }
-            else if (this.type === 'knight') {
-                if (this.level === 2 && mode) this.upgradePath = mode;
-            }
-            else if (this.type === 'queen') {
-                if (this.level === 2 && mode) this.upgradePath = mode;
-            }
-            this.applyBuffs(); 
-            this.hp = this.maxHp; 
+        this.extraHpMult = 1.0; 
+        this.extraSpdMult = 1.0;
+        this.extraDmgMult = 1.0; 
+        this.upgradePath = null; 
+        this.stunTimer = 0;
+        this.weakened = false;
+
+        this.applyBuffs(); 
+        this.hp = this.maxHp;
+        this.timer = 0; 
+        this.healTimer = 0; // 👑 퀸 힐링용 타이머 추가
+    }
+
+    applyBuffs() {
+        const lvlMult = Math.pow(1.2, this.level - 1);
+        let finalHpMult = globalBuffs.hpMult * this.extraHpMult;
+        let finalSpdMult = globalBuffs.spdMult * this.extraSpdMult;
+        let finalDmgMult = globalBuffs.dmgMult * this.extraDmgMult;
+
+        this.maxHp = Math.floor(this.baseStats.hp * lvlMult * finalHpMult);
+        
+        if (this.type === 'king') {
+            this.damage = 0.2 + ((this.level-1) * 0.2) + globalBuffs.kingGold;
+        } else {
+            this.damage = Math.floor(this.baseStats.dmg * Math.pow(1.3, this.level - 1) * finalDmgMult);
+        }
+        
+        this.cd = Math.max(10, Math.floor(this.baseStats.spd / finalSpdMult* (1 + wave * 0.000001)));
+        this.hp = Math.min(this.hp, this.maxHp);
+    }
+
+    getUpgradeCost() { return Math.floor(this.baseStats.upCost * this.level); }
+    
+    levelUp(mode) {
+        this.level++;
+        if (this.type === 'pawn') {
+            if (this.level === 2 && mode) this.upgradePath = mode;
+            if (this.upgradePath === 'berserk') { this.extraHpMult *= 0.9; this.extraSpdMult *= 1.15; }
+            else if (this.upgradePath === 'tank') { this.extraHpMult *= 1.2; }
+        }
+        else if (this.type === 'bishop') {
+            if (this.level === 2 && mode) this.upgradePath = mode;
+            if (this.upgradePath === 'rapid') { this.extraDmgMult *= 0.75; this.extraSpdMult *= 1.40; }
+            else if (this.upgradePath === 'power') { this.extraDmgMult *= 1.35; this.extraSpdMult *= 0.75; }
+        }
+        else if (this.type === 'rook') {
+            if (this.level === 2 && mode) this.upgradePath = mode;
+            if (this.upgradePath === 'cannon') { this.extraDmgMult *= 1.3; this.extraSpdMult *= 0.5; }
+            else if (this.upgradePath === 'vulcan') { this.extraDmgMult *= 0.4; this.extraSpdMult *= 1.6; }
+        }
+        else if (this.type === 'knight') {
+            if (this.level === 2 && mode) this.upgradePath = mode;
+        }
+        else if (this.type === 'queen') {
+            if (this.level === 2 && mode) this.upgradePath = mode;
+        }
+        this.applyBuffs(); 
+        this.hp = this.maxHp; 
+    }
+
+    // 💡 해결: update() 함수 안에 힐링 로직을 쏙 넣었습니다!
+    update() {
+        if (this.stunTimer > 0) {
+            this.stunTimer--;
+            return; // 기절 상태면 공격 불가
         }
 
-        // 💡 해결 1: 타이머 엔진 복구! 쿨다운이 차면 스스로 act()를 호출해서 공격하게 만들었습니다!
-        update() {
-            if (this.stunTimer > 0) {
-                this.stunTimer--;
-                return; // 기절 상태면 공격 불가
-            }
-
-            this.timer++;
-            if (this.timer >= this.cd) {
-                this.act();   // 탕탕탕!
-                this.timer = 0; // 쿨다운 초기화
-            }
+        this.timer++;
+        if (this.timer >= this.cd) {
+            this.act();   // 탕탕탕!
+            this.timer = 0; // 쿨다운 초기화
         }
 
-        weaken() { this.weakened = true; }
-
-        act() {
-            const cx = this.x + 50, cy = this.y + 50;
-            if (this.type === 'king') { energy += this.damage; score += this.damage; spawnFloatingText(`+${this.damage.toFixed(1)}`, cx, this.y, '#ffd700', 18); updateUI(); return; }
-            
-            let finalDmg = this.damage;
-            let isCrit = false;
-            if (Math.random() < globalBuffs.critChance) { finalDmg *= 2; isCrit = true; }
-            if (this.weakened) { finalDmg *= 0.5; this.weakened = false; spawnFloatingText("Weak", this.x+50, this.y-20, '#cc00ff', 12); }
-
-            // 🗡️ 나이트 완벽 개조 로직
-            if (this.type === 'knight') { 
-                 let range = 250 * globalBuffs.rangeMult;
-                 let hit = false;
-                 
-                 enemies.forEach(e => {
-                    if (Math.hypot((e.x+50)-cx, (e.y+50)-cy) < range) {
-                        e.takeDamage(finalDmg, isCrit, this.type);
-                        hit = true;
-
-                        // 업그레이드 속성에 따라 이펙트와 디버프 적용!
-                        if (this.upgradePath === 'fire') {
-                            e.applyBurnStack(finalDmg * 0.3, 180); 
-                            particles.push(new SlashParticle(cx, cy, e.x+50, e.y+50, '#ff4400'));
-                            spawnParticles(e.x+50, e.y+50, 10, '#ff4400');
-                            spawnFloatingText("BURN!", e.x+50, e.y - 20, "#ff4400", 18);
-                        } else if (this.upgradePath === 'ice') {
-                            e.applyStun(60); 
-                            particles.push(new SlashParticle(cx, cy, e.x+50, e.y+50, '#00ffff'));
-                            spawnParticles(e.x+50, e.y+50, 15, '#00ffff');
-                            spawnFloatingText("STUN!", e.x+50, e.y - 20, "#00ffff", 18);
-                        } else {
-                            // 기본 나이트
-                            particles.push(new SlashParticle(cx, cy, e.x+50, e.y+50, '#ffffff'));
-                            spawnParticles(e.x+50, e.y+50, 5, '#fff');
+        // 👑 퀸 주변 아군 지속 힐링 로직 (여기에 있어야 매 프레임 정상 작동해!)
+        if (this.type === 'queen') {
+            this.healTimer++;
+            if (this.healTimer >= 60) { // 60프레임 = 약 1초마다
+                this.healTimer = 0;
+                let healedAny = false;
+                
+                const cx = this.x + 50, cy = this.y + 50; // 퀸 중심점
+                
+                // 사거리 내 아군(defenders 배열) 찾아서 체력 회복
+                for (let ally of defenders) { 
+                    if (ally !== this && ally.hp < ally.maxHp) {
+                        const allyCx = ally.x + 50, allyCy = ally.y + 50; // 아군 중심점
+                        let dist = Math.hypot(allyCx - cx, allyCy - cy);
+                        
+                        // 힐 사거리는 넉넉하게 250으로 설정 (필요하면 늘리거나 줄여!)
+                        if (dist <= 250) {
+                            ally.hp += 20; // ❤️ 초당 20 회복
+                            if (ally.hp > ally.maxHp) ally.hp = ally.maxHp;
+                            
+                            spawnParticles(allyCx, allyCy, 5, '#00ff00');
+                            healedAny = true;
                         }
                     }
-                });
-
-                if (this.upgradePath === 'fire') spawnTileEffect(this.x + CELL_SIZE, this.y, 'fire');
-                if (this.upgradePath === 'ice') spawnTileEffect(this.x + CELL_SIZE, this.y, 'ice');
-
-                if(hit) this.effect = true;
-            } 
-            // 👸 퀸 (속성 투사체)
-            else if (this.type === 'queen') {
-                 let pType = this.upgradePath === 'fire' ? 'fire' : (this.upgradePath === 'ice' ? 'ice' : 'normal');
-                 projectiles.push(new Projectile(cx, cy, finalDmg, 0, this.color, isCrit, this.type, pType));
-                 projectiles.push(new Projectile(cx, cy, finalDmg, -0.6, this.color, isCrit, this.type, pType));
-                 projectiles.push(new Projectile(cx, cy, finalDmg, 0.6, this.color, isCrit, this.type, pType));
-            } 
-            // 🧙 비숍 (대각선)
-            else if (this.type === 'bishop') {
-                 projectiles.push(new Projectile(cx, cy, finalDmg, -0.6, this.color, isCrit, this.type));
-                 projectiles.push(new Projectile(cx, cy, finalDmg, 0.6, this.color, isCrit, this.type));
-            } 
-            // ♟️ 폰 & ♖ 룩 (직선 공격)
-            else { 
-                let range = (this.type === 'pawn') ? (180 * globalBuffs.rangeMult) : 900;
-                // 💡 해결 2: 적의 Y좌표 오차를 20px까지 너그럽게 허용해줍니다. (스무스한 적 인식!)
-                if (enemies.some(e => Math.abs(e.y - this.y) < 20 && e.x > this.x && e.x < this.x + range)) {
-                    projectiles.push(new Projectile(cx, cy, finalDmg, 0, this.color, isCrit, this.type));
+                }
+                
+                // 힐을 1명이라도 줬다면 퀸 머리 위에도 "HEAL!" 띄우기
+                if (healedAny) {
+                    spawnParticles(cx, cy, 10, '#aaffaa');
+                    spawnFloatingText("HEAL!", cx, this.y - 20, '#00ff00', 18);
                 }
             }
         }
+    }
 
-        draw() {
-            ctx.fillStyle = '#333'; ctx.fillRect(this.x+5, this.y+5, 90, 90);
-            ctx.fillStyle = this.color; ctx.font = '50px Arial'; ctx.textAlign = 'center'; ctx.fillText(this.icon, this.x+50, this.y+65);
-            
-            // 직업 아이콘
-            if (this.upgradePath === 'tank') ctx.fillText('🛡️', this.x+20, this.y+30);
-            if (this.upgradePath === 'berserk') ctx.fillText('⚔️', this.x+20, this.y+30);
-            if (this.upgradePath === 'rapid') ctx.fillText('⚡', this.x+20, this.y+30);
-            if (this.upgradePath === 'power') ctx.fillText('🔮', this.x+20, this.y+30);
-            if (this.upgradePath === 'cannon') ctx.fillText('🧨', this.x+20, this.y+30);
-            if (this.upgradePath === 'vulcan') ctx.fillText('🌪️', this.x+20, this.y+30);
-            if (this.upgradePath === 'fire') ctx.fillText('🔥', this.x+20, this.y+30);
-            if (this.upgradePath === 'ice') ctx.fillText('❄️', this.x+20, this.y+30);
+    weaken() { this.weakened = true; }
 
-            if (this.stunTimer > 0) {
-                ctx.font = '30px Arial'; ctx.fillText('💫', this.x+50, this.y+40);
-            }
+    act() {
+        const cx = this.x + 50, cy = this.y + 50;
+        if (this.type === 'king') { energy += this.damage; score += this.damage; spawnFloatingText(`+${this.damage.toFixed(1)}`, cx, this.y, '#ffd700', 18); updateUI(); return; }
+        
+        let finalDmg = this.damage;
+        let isCrit = false;
+        if (Math.random() < globalBuffs.critChance) { finalDmg *= 2; isCrit = true; }
+        if (this.weakened) { finalDmg *= 0.5; this.weakened = false; spawnFloatingText("Weak", this.x+50, this.y-20, '#cc00ff', 12); }
 
-            if (this.weakened) {
-                ctx.strokeStyle = '#9013fe'; ctx.lineWidth = 3; 
-                ctx.strokeRect(this.x+5, this.y+5, 90, 90);
-            }
+        // 🗡️ 나이트 완벽 개조 로직
+        if (this.type === 'knight') { 
+                let range = 250 * globalBuffs.rangeMult;
+                let hit = false;
+                
+                enemies.forEach(e => {
+                if (Math.hypot((e.x+50)-cx, (e.y+50)-cy) < range) {
+                    e.takeDamage(finalDmg, isCrit, this.type);
+                    hit = true;
 
-            let stars = "⭐".repeat(Math.min(3, this.level)); if (this.level > 3) stars = `⭐Lv.${this.level}`;
-            ctx.font = '12px Arial'; ctx.fillStyle = '#fff'; ctx.fillText(stars, this.x+50, this.y+20);
-            const pct = this.hp/this.maxHp;
-            ctx.fillStyle = '#000'; ctx.fillRect(this.x+10, this.y+80, 80, 6);
-            ctx.fillStyle = pct > 0.3 ? '#2ecc71' : '#e74c3c'; ctx.fillRect(this.x+10, this.y+80, 80*pct, 6);
-            
-            if(this.effect) {
-                ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.beginPath(); 
-                ctx.arc(this.x+50, this.y+50, 330 * globalBuffs.rangeMult / 2, 0, Math.PI*2); ctx.stroke();
-                this.effect = false;
+                    // 업그레이드 속성에 따라 이펙트와 디버프 적용!
+                    if (this.upgradePath === 'fire') {
+                        e.applyBurnStack(finalDmg * 0.3, 180); 
+                        particles.push(new SlashParticle(cx, cy, e.x+50, e.y+50, '#ff4400'));
+                        spawnParticles(e.x+50, e.y+50, 10, '#ff4400');
+                        spawnFloatingText("BURN!", e.x+50, e.y - 20, "#ff4400", 18);
+                    } else if (this.upgradePath === 'ice') {
+                        e.applyStun(60); 
+                        particles.push(new SlashParticle(cx, cy, e.x+50, e.y+50, '#00ffff'));
+                        spawnParticles(e.x+50, e.y+50, 15, '#00ffff');
+                        spawnFloatingText("STUN!", e.x+50, e.y - 20, "#00ffff", 18);
+                    } else {
+                        // 기본 나이트
+                        particles.push(new SlashParticle(cx, cy, e.x+50, e.y+50, '#ffffff'));
+                        spawnParticles(e.x+50, e.y+50, 5, '#fff');
+                    }
+                }
+            });
+
+            if (this.upgradePath === 'fire') spawnTileEffect(this.x + CELL_SIZE, this.y, 'fire');
+            if (this.upgradePath === 'ice') spawnTileEffect(this.x + CELL_SIZE, this.y, 'ice');
+
+            if(hit) this.effect = true;
+        } 
+        // 👸 퀸 (속성 투사체)
+        else if (this.type === 'queen') {
+                let pType = this.upgradePath === 'fire' ? 'fire' : (this.upgradePath === 'ice' ? 'ice' : 'normal');
+                projectiles.push(new Projectile(cx, cy, finalDmg, 0, this.color, isCrit, this.type, pType));
+                projectiles.push(new Projectile(cx, cy, finalDmg, -0.6, this.color, isCrit, this.type, pType));
+                projectiles.push(new Projectile(cx, cy, finalDmg, 0.6, this.color, isCrit, this.type, pType));
+        } 
+        // 🧙 비숍 (대각선)
+        else if (this.type === 'bishop') {
+                projectiles.push(new Projectile(cx, cy, finalDmg, -0.6, this.color, isCrit, this.type));
+                projectiles.push(new Projectile(cx, cy, finalDmg, 0.6, this.color, isCrit, this.type));
+        } 
+        // ♟️ 폰 & ♖ 룩 (직선 공격)
+        else { 
+            let range = (this.type === 'pawn') ? (180 * globalBuffs.rangeMult) : 900;
+            if (enemies.some(e => Math.abs(e.y - this.y) < 20 && e.x > this.x && e.x < this.x + range)) {
+                projectiles.push(new Projectile(cx, cy, finalDmg, 0, this.color, isCrit, this.type));
             }
         }
     }
+
+    draw() {
+        ctx.fillStyle = '#333'; ctx.fillRect(this.x+5, this.y+5, 90, 90);
+        ctx.fillStyle = this.color; ctx.font = '50px Arial'; ctx.textAlign = 'center'; ctx.fillText(this.icon, this.x+50, this.y+65);
+        
+        // 직업 아이콘
+        if (this.upgradePath === 'tank') ctx.fillText('🛡️', this.x+20, this.y+30);
+        if (this.upgradePath === 'berserk') ctx.fillText('⚔️', this.x+20, this.y+30);
+        if (this.upgradePath === 'rapid') ctx.fillText('⚡', this.x+20, this.y+30);
+        if (this.upgradePath === 'power') ctx.fillText('🔮', this.x+20, this.y+30);
+        if (this.upgradePath === 'cannon') ctx.fillText('🧨', this.x+20, this.y+30);
+        if (this.upgradePath === 'vulcan') ctx.fillText('🌪️', this.x+20, this.y+30);
+        if (this.upgradePath === 'fire') ctx.fillText('🔥', this.x+20, this.y+30);
+        if (this.upgradePath === 'ice') ctx.fillText('❄️', this.x+20, this.y+30);
+
+        if (this.stunTimer > 0) {
+            ctx.font = '30px Arial'; ctx.fillText('💫', this.x+50, this.y+40);
+        }
+
+        if (this.weakened) {
+            ctx.strokeStyle = '#9013fe'; ctx.lineWidth = 3; 
+            ctx.strokeRect(this.x+5, this.y+5, 90, 90);
+        }
+
+        let stars = "⭐".repeat(Math.min(3, this.level)); if (this.level > 3) stars = `⭐Lv.${this.level}`;
+        ctx.font = '12px Arial'; ctx.fillStyle = '#fff'; ctx.fillText(stars, this.x+50, this.y+20);
+        const pct = this.hp/this.maxHp;
+        ctx.fillStyle = '#000'; ctx.fillRect(this.x+10, this.y+80, 80, 6);
+        ctx.fillStyle = pct > 0.3 ? '#2ecc71' : '#e74c3c'; ctx.fillRect(this.x+10, this.y+80, 80*pct, 6);
+        
+        if(this.effect) {
+            ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.beginPath(); 
+            ctx.arc(this.x+50, this.y+50, 330 * globalBuffs.rangeMult / 2, 0, Math.PI*2); ctx.stroke();
+            this.effect = false;
+        }
+    }
+}
 
 
     // 🔥 Meteor Class
