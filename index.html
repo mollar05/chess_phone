@@ -395,24 +395,24 @@
     // 🔥 해금 목록 + 비용 추가
     const UNLOCK_POOL = [
         { id: 'unlock_king',   type: 'unit', target: 'king',   name: '킹 해금',   icon: '♚', desc: '자원을 생산하는 킹을 배치할 수 있습니다.', cost: 3 },
-        { id: 'unlock_rook',   type: 'unit', target: 'rook',   name: '룩 해금',   icon: '♜', desc: '강력한 원거리 딜러 룩을 배치할 수 있습니다.', cost: 4 },
-        { id: 'unlock_knight', type: 'unit', target: 'knight', name: '나이트 해금', icon: '♞', desc: '범위 공격을 하는 나이트를 배치할 수 있습니다.', cost: 5 },
-        { id: 'unlock_queen',  type: 'unit', target: 'queen',  name: '퀸 해금',    icon: '♛', desc: '최강의 유닛 퀸을 배치할 수 있습니다.', cost: 5 },
+        { id: 'unlock_rook',   type: 'unit', target: 'rook',   name: '룩 해금',   icon: '♜', desc: '강력한 원거리 딜러 룩을 배치할 수 있습니다.', cost: 80 },
+        { id: 'unlock_knight', type: 'unit', target: 'knight', name: '나이트 해금', icon: '♞', desc: '범위 공격을 하는 나이트를 배치할 수 있습니다.', cost: 100 },
+        { id: 'unlock_queen',  type: 'unit', target: 'queen',  name: '퀸 해금',    icon: '♛', desc: '최강의 유닛 퀸을 배치할 수 있습니다.', cost: 300 },
         
         { id: 'abil_pawn_tank',    type: 'ability', target: 'pawn_tank',    name: '폰: 수호자',   icon: '🛡️', desc: '폰이 Lv.2에서 수호자(체력↑)로 전직 가능합니다.', cost: 2 },
         { id: 'abil_pawn_berserk', type: 'ability', target: 'pawn_berserk', name: '폰: 광전사',   icon: '⚔️', desc: '폰이 Lv.2에서 광전사(공속↑)로 전직 가능합니다.', cost: 2 },
         
-        { id: 'abil_bishop_rapid', type: 'ability', target: 'bishop_rapid', name: '비숍: 속사',   icon: '⚡', desc: '비숍이 Lv.2에서 속사(공속↑)로 전직 가능합니다.', cost: 2 },
-        { id: 'abil_bishop_power', type: 'ability', target: 'bishop_power', name: '비숍: 마력',   icon: '🔮', desc: '비숍이 Lv.2에서 마력(뎀증)으로 전직 가능합니다.', cost: 2 },
+        { id: 'abil_bishop_rapid', type: 'ability', target: 'bishop_rapid', name: '비숍: 속사',   icon: '⚡', desc: '비숍이 Lv.2에서 속사(공속↑)로 전직 가능합니다.', cost: 20 },
+        { id: 'abil_bishop_power', type: 'ability', target: 'bishop_power', name: '비숍: 마력',   icon: '🔮', desc: '비숍이 Lv.2에서 마력(뎀증)으로 전직 가능합니다.', cost: 20 },
         
-        { id: 'abil_rook_cannon',  type: 'ability', target: 'rook_cannon',  name: '룩: 거포',     icon: '🧨', desc: '룩이 Lv.2에서 거포(한방)로 전직 가능합니다.', cost: 3 },
-        { id: 'abil_rook_vulcan',  type: 'ability', target: 'rook_vulcan',  name: '룩: 속사포',   icon: '🌪️', desc: '룩이 Lv.2에서 속사포(연사)로 전직 가능합니다.', cost: 3 },
+        { id: 'abil_rook_cannon',  type: 'ability', target: 'rook_cannon',  name: '룩: 거포',     icon: '🧨', desc: '룩이 Lv.2에서 거포(한방)로 전직 가능합니다.', cost: 30 },
+        { id: 'abil_rook_vulcan',  type: 'ability', target: 'rook_vulcan',  name: '룩: 속사포',   icon: '🌪️', desc: '룩이 Lv.2에서 속사포(연사)로 전직 가능합니다.', cost: 30 },
         
-        { id: 'abil_knight_fire',  type: 'ability', target: 'knight_fire',  name: '나이트: 불',   icon: '🔥', desc: '나이트가 불 영역(데미지)을 전개할 수 있습니다.', cost: 4 },
-        { id: 'abil_knight_ice',   type: 'ability', target: 'knight_ice',   name: '나이트: 얼음', icon: '❄️', desc: '나이트가 얼음 영역(슬로우)을 전개할 수 있습니다.', cost: 4 },
+        { id: 'abil_knight_fire',  type: 'ability', target: 'knight_fire',  name: '나이트: 불',   icon: '🔥', desc: '나이트가 불 영역(데미지)을 전개할 수 있습니다.', cost: 180 },
+        { id: 'abil_knight_ice',   type: 'ability', target: 'knight_ice',   name: '나이트: 얼음', icon: '❄️', desc: '나이트가 얼음 영역(슬로우)을 전개할 수 있습니다.', cost: 180 },
 
-        { id: 'abil_queen_fire',   type: 'ability', target: 'queen_fire',   name: '퀸: 화염탄',   icon: '💥', desc: '퀸이 폭발하는 화염탄(중첩 화상)을 발사할 수 있습니다.', cost: 5 },
-        { id: 'abil_queen_ice',    type: 'ability', target: 'queen_ice',    name: '퀸: 얼음탄',   icon: '🧊', desc: '퀸이 적을 얼리는 얼음탄을 발사할 수 있습니다.', cost: 5 }
+        { id: 'abil_queen_fire',   type: 'ability', target: 'queen_fire',   name: '퀸: 화염탄',   icon: '💥', desc: '퀸이 폭발하는 화염탄(중첩 화상)을 발사할 수 있습니다.', cost: 200 },
+        { id: 'abil_queen_ice',    type: 'ability', target: 'queen_ice',    name: '퀸: 얼음탄',   icon: '🧊', desc: '퀸이 적을 얼리는 얼음탄을 발사할 수 있습니다.', cost: 200 }
     ];
 
     let globalBuffs = { 
@@ -440,7 +440,7 @@
         'rook':   { cost: 300, hp: 230, dmg: 30,  spd: 30,  upCost: 80, color: '#4a90e2', icon: '♜', name: '룩' },
         'bishop': { cost: 60, hp: 300, dmg: 40,  spd: 60,  upCost: 40,  color: '#9013fe', icon: '♝', name: '비숍' },
         'knight': { cost: 120, hp: 300, dmg: 0,   spd: 120, upCost: 200, color: '#7ed321', icon: '♞', name: '나이트' }, 
-        'queen':  { cost: 1500, hp: 500, dmg: 30,   spd: 15,  upCost: 200, color: '#ff00ff', icon: '♛', name: '퀸' } 
+        'queen':  { cost: 600, hp: 500, dmg: 30,   spd: 60,  upCost: 200, color: '#ff00ff', icon: '♛', name: '퀸' } 
     };
 
     const CARD_POOL = [
@@ -510,7 +510,10 @@
         "💡 Tip: 뭐 뭐? 뭐!? 아 음 어...",
         "💡 Tip: 팁은 많다.",
         "💡 Tip: 팁은 새로고침으로 보기 쉽다.",
-        "💡 Tip: 팁에는 팁이(설명이)있다"
+        "💡 Tip: 팁에는 팁이(설명이)있다",
+        "💡 Tip: 퀸은 힐함",
+        "💡 Tip: 후반으로 갈수록 나이트가 중요함",
+        "💡 Tip: anj dldkaghfmf slrk vnftndlTrpTsi?(오타x?)",
        ];
 
     function showRandomTip() {
