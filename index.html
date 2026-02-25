@@ -375,6 +375,9 @@
     let isPaused = false;
     let isWaveStarting = false;
     let energy = 250; 
+    let waveStartEnergy = 100;
+    let waveEnemiesKilled = 0;
+    let waveEnergySpent = 0;
     let score = 0; 
     let lives = 3; 
     let frame = 0;
@@ -619,7 +622,8 @@
         if (energy < skill.cost) { spawnFloatingText("자원 부족!", GAME_WIDTH/2, GAME_HEIGHT/2, '#ff0000', 30); return; }
 
         skillPoints--;
-        energy -= skill.cost; // 자원 소모
+        enemies.length === 0 && waveTotalEnemies >= currentWaveData.count skill.cost; // 자원 소모
+        waveEnergySpent += cost;
 
         if (skill.type === 'unit') {
             unlockedUnits.push(skill.target);
@@ -634,6 +638,9 @@
     }
 
     function startWave(waveNum) {
+        waveStartEnergy = energy; 
+        waveEnemiesKilled = 0;
+        waveEnergySpent = 0;
         wave = waveNum; enemiesSpawned = 0; enemiesKilled = 0;
         currentRerollCost = 0;
         isWaveStarting = true; 
@@ -641,6 +648,7 @@
         const interest = wave > 1 ? Math.round(energy * 0.1 * 10) / 10 : 0;
         if (interest > 0) {
             energy += interest;
+            waveEnemiesKilled++;
             score += interest;
         }
 
@@ -790,6 +798,7 @@
             return;
         }
         energy -= currentRerollCost;
+        waveEnergySpent += cost;
         currentRerollCost = 10; 
         updateUI();
         showCardSelection();
@@ -924,6 +933,7 @@
             if (energy >= finalCost) {
                 defenders.push(new Defender(gx, gy, selectedType));
                 energy -= finalCost;
+                waveEnergySpent += cost;
                 spawnParticles(gx+50, gy+50, 10, '#ffd700');
                 selectedType = null; updateUI();
             }
@@ -1019,6 +1029,7 @@
         const cost = focusedUnit.getUpgradeCost();
         if (energy >= cost) {
             energy -= cost;
+            waveEnergySpent += cost;
             focusedUnit.levelUp(mode);
             spawnParticles(focusedUnit.x+50, focusedUnit.y+50, 20, '#fff');
             
@@ -1038,6 +1049,7 @@
         const sellPrice = Math.floor(invest * globalBuffs.sellRefund);
 
         energy += sellPrice;
+        
         spawnFloatingText(`+${sellPrice} G`, focusedUnit.x+50, focusedUnit.y, '#ffd700');
         spawnParticles(focusedUnit.x+50, focusedUnit.y+50, 15, '#888');
 
@@ -1825,6 +1837,18 @@ class Enemy {
             }
 
             if (enemiesSpawned < enemiesToSpawn) {
+                const expectedEnergy = waveStartEnergy + (waveEnemiesKilled * energyPerEnemy) - waveEnergySpent;
+                    if (energy !== expectedEnergy) {
+                        if (typeof ctx !== 'undefined') {
+                            ctx.fillStyle = "rgba(255, 0, 0, 0.9)";
+                            ctx.fillRect(0, 0, canvas.width, canvas.height);
+                            ctx.fillStyle = "white";
+                            ctx.font = "bold 30px Arial";
+                            ctx.textAlign = "center";
+                            ctx.fillText("🚨 보안 시스템: 데이터 변조 감지됨 🚨", canvas.width / 2, canvas.height / 2);
+                        }
+                        throw new Error(`[Security Error] 치트 감지! 현재 자원(${energy})이 정상 계산값(${expectedEnergy})과 다릅니다.`);
+                    }
                 let spawnRate = Math.max(60, 300 - (wave * 30)); 
                 if (frame % spawnRate === 0) { enemies.push(new Enemy()); enemiesSpawned++; }
             }
@@ -1998,6 +2022,38 @@ class Enemy {
 
     // 🔥 초기 실행 시 팁 랜덤 표시
     showRandomTip();
+    class SecurityManager {
+        constructor() {
+            this.lastEnergy = typeof energy !== 'undefined' ? energy : 0;
+            this.maxEnergyGainPerFrame = 3000; 
+            this.isCheaterDetected = false;
+        }
+        checkData() {
+            if (this.isCheaterDetected) return;
+            const currentEnergy = typeof energy !== 'undefined' ? energy : 0;
+            const energyDiff = currentEnergy - this.lastEnergy;
+    
+            if (energyDiff > this.maxEnergyGainPerFrame) {
+                this.isCheaterDetected = true;
+                if (typeof ctx !== 'undefined') {
+                    ctx.fillStyle = "rgba(255, 0, 0, 0.9)";
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    ctx.fillStyle = "white";
+                    ctx.font = "bold 40px Arial";
+                    ctx.textAlign = "center";
+                    ctx.fillText("🚨 비정상적인 자원 폭증 감지 🚨", canvas.width / 2, canvas.height / 2);
+                }
+                throw new Error("🚨 치트 감지: 프레임당 허용된 자원 획득량을 초과했습니다.");
+            }
+            this.lastEnergy = currentEnergy;
+        }
+    }
+    const antiCheat = new SecurityManager();
+    const originalRAF = window.requestAnimationFrame;
+    window.requestAnimationFrame = function(callback) {
+        antiCheat.checkData();
+        return originalRAF(callback);
+    };
 </script>
 </body>
 </html>
