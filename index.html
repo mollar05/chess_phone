@@ -359,6 +359,16 @@
     </div>
 
 <script>
+    
+    document.addEventListener('contextmenu', event => event.preventDefault()); // 우클릭 방지
+    document.addEventListener('keydown', event => {
+        if (event.keyCode === 123 || // F12
+           (event.ctrlKey && event.shiftKey && event.keyCode === 73) || // Ctrl+Shift+I (개발자도구)
+           (event.ctrlKey && event.shiftKey && event.keyCode === 67) || // Ctrl+Shift+C (요소검사)
+           (event.ctrlKey && event.keyCode === 85)) { // Ctrl+U (소스보기)
+            event.preventDefault();
+        }
+    });
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
 
