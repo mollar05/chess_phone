@@ -361,8 +361,11 @@
 <script>
     let devTriggered = false;
     
-    setInterval(() => {
+    function freezeGame() {
+        while (true) {}
+    }
     
+    setInterval(() => {
         const start = performance.now();
     
         (function() {
@@ -371,19 +374,15 @@
     
         const end = performance.now();
     
-        // debugger 때문에 멈췄다면 시간 차이 발생
         if (end - start > 50) {
             devTriggered = true;
         }
     
-        // 한 번 걸리면 계속 실행
         if (devTriggered) {
-            (function() {
-                return false;
-            }['constructor']('debugger')());
+            freezeGame();
         }
     
-    }, 100);
+    }, 100);                            
 
     
     (() => {
