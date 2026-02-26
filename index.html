@@ -361,28 +361,34 @@
 <script>
     let devTriggered = false;
     
-    function freezeGame() {
+    function killGame() {
+        // 게임 루프 제거
+        cancelAnimationFrame(window.gameLoopId);
+    
+        // 화면 제거
+        document.body.innerHTML = "<h1>😈 HACK DETECTED</h1>";
+    
+        // JS 무한 루프 (진짜 끝)
         while (true) {}
     }
     
     setInterval(() => {
+    
         const start = performance.now();
     
-        (function() {
-            return false;
-        }['constructor']('debugger')());
+        debugger;
     
         const end = performance.now();
     
-        if (end - start > 50) {
+        if (end - start > 100) {
             devTriggered = true;
         }
     
         if (devTriggered) {
-            freezeGame();
+            killGame();
         }
     
-    }, 100);                            
+    }, 500);                        
 
     
     (() => {
