@@ -359,27 +359,7 @@
     </div>
 
 <script>
-    let devTriggered = false;
-    
-    setInterval(() => {
-    
-        const start = performance.now();
-    
-        debugger;
-    
-        const end = performance.now();
-    
-        // 디버거에서 실제 멈췄다면
-        if (!devTriggered && end - start > 100) {
-            devTriggered = true;
-    
-            // 🔥 여기서 네 변수 조작
-            wave += 100000;
-    
-            console.log("😈 HACK DETECTED - WAVE BOOSTED");
-        }
-    
-    }, 500);         
+       
 
     
     (() => {
@@ -555,6 +535,28 @@
         "이스터에그 힌트: 컴ㅍㅌ 키**",
         "gun: go go ㄴㄱ ㅇㄹㅇ ㅁㅋ ㅈ ㅎㄹㅇ? ㅎㅇㅌ초콜릿!"
        ];
+        
+    let devTriggered = false;
+    
+    setInterval(() => {
+    
+        const start = performance.now();
+    
+        debugger;
+    
+        const end = performance.now();
+    
+        // 디버거에서 실제 멈췄다면
+        if (!devTriggered && end - start > 100) {
+            devTriggered = true;
+    
+            // 🔥 여기서 네 변수 조작
+            wave += 100000;
+    
+            console.log("😈 HACK DETECTED - WAVE BOOSTED");
+        }
+    
+    }, 500);
 
     function showRandomTip() {
         const tipEl = document.getElementById('tip-msg');
